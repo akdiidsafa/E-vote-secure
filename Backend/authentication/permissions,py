@@ -1,0 +1,29 @@
+from rest_framework import permissions
+
+class IsAdminUser(permissions.BasePermission):
+    """
+    Custom permission to only allow admin users
+    """
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and request.user.role == 'admin'
+
+class IsVoter(permissions.BasePermission):
+    """
+    Custom permission to only allow voters
+    """
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and request.user.role == 'voter'
+
+class IsCO(permissions.BasePermission):
+    """
+    Custom permission to only allow CO users
+    """
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and request.user.role == 'co'
+
+class IsDE(permissions.BasePermission):
+    """
+    Custom permission to only allow DE users
+    """
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and request.user.role == 'de'

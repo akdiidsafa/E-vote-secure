@@ -147,6 +147,7 @@ class ElectionCloseView(APIView):
 class AssignVotersView(APIView):
     """
     POST /api/elections/assign-voters/ - Bulk assign voters to election
+    REMPLACE toutes les assignations existantes
     """
     permission_classes = [permissions.IsAuthenticated]
     
@@ -173,15 +174,17 @@ class AssignVotersView(APIView):
                 'error': 'Certains électeurs sont invalides.'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # Create assignments
+        # ← FIX: SUPPRIMER toutes les anciennes assignations
+        ElectionVoterAssignment.objects.filter(election=election).delete()
+        
+        # ← FIX: CRÉER les nouvelles assignations
         assignments_created = 0
         for voter in voters:
-            _, created = ElectionVoterAssignment.objects.get_or_create(
+            ElectionVoterAssignment.objects.create(
                 election=election,
                 voter=voter
             )
-            if created:
-                assignments_created += 1
+            assignments_created += 1
         
         return Response({
             'message': f'{assignments_created} électeur(s) assigné(s) avec succès.',
@@ -236,4 +239,4 @@ class ElectionStatsView(APIView):
             'end_date': election.end_date,
         }
         
-        return Response(stats, status=status.HTTP_200_OK)
+       

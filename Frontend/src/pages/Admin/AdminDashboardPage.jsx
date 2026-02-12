@@ -7,6 +7,7 @@ import Badge from '../../components/ui/Badge';
 import { useNavigate } from 'react-router-dom';
 import { electionsAPI, usersAPI } from '../../services/api';
 
+
 const AdminDashboardPage = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -238,54 +239,67 @@ const AdminDashboardPage = () => {
 
         {/* Actions Rapides */}
         <Card className="mb-8">
-          <h3 className="text-lg font-semibold mb-4">Actions Rapides</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <Button 
-              variant="primary" 
-              className="w-full justify-center"
-              onClick={() => navigate('/admin/elections/create')}
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              Créer une Nouvelle Élection
-            </Button>
-            
-            <Button 
-              variant="primary" 
-              className="w-full justify-center"
-              onClick={() => navigate('/admin/candidates')}
-            >
-              <Users className="w-5 h-5 mr-2" />
-              Gérer les Candidats
-            </Button>
-            
-            <Button 
-              variant="primary" 
-              className="w-full justify-center"
-              onClick={() => navigate('/admin/voters')}
-            >
-              <UserPlus className="w-5 h-5 mr-2" />
-              Gérer les Électeurs
-            </Button>
-            
-            <Button 
-              variant="success" 
-              className="w-full justify-center"
-              onClick={() => navigate('/admin/assignment')}
-            >
-              <UserCheck className="w-5 h-5 mr-2" />
-              Assigner aux Élections
-            </Button>
-            
-            <Button 
-              variant="primary"
-              className="w-full justify-center"
-              onClick={() => navigate('/admin/results')}
-            >
-              <TrendingUp className="w-5 h-5 mr-2" />
-              Publier les Résultats
-            </Button>
-          </div>
-        </Card>
+  <h3 className="text-lg font-semibold mb-4">Actions Rapides</h3>
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <Button 
+      variant="primary" 
+      className="w-full justify-center"
+      onClick={() => navigate('/admin/elections/create')}
+    >
+      <Plus className="w-5 h-5 mr-2" />
+      Créer une Nouvelle Élection
+    </Button>
+    
+    <Button 
+      variant="primary" 
+      className="w-full justify-center"
+      onClick={() => navigate('/admin/candidates')}
+    >
+      <Users className="w-5 h-5 mr-2" />
+      Gérer les Candidats
+    </Button>
+    
+    <Button 
+      variant="primary" 
+      className="w-full justify-center"
+      onClick={() => navigate('/admin/voters')}
+    >
+      <UserPlus className="w-5 h-5 mr-2" />
+      Gérer les Électeurs
+    </Button>
+    
+    <Button 
+      variant="success" 
+      className="w-full justify-center"
+      onClick={() => navigate('/admin/assignment')}
+    >
+      <UserCheck className="w-5 h-5 mr-2" />
+      Assigner aux Élections
+    </Button>
+    
+    <Button 
+      variant="success"
+      className="w-full justify-center"
+      onClick={() => alert('Ouvrir le vote - Fonctionnalité à venir')}
+    >
+      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+      </svg>
+      Ouvrir le Vote
+    </Button>
+    
+    <Button 
+      variant="secondary"
+      className="w-full justify-center"
+      onClick={() => alert('Fermer le vote - Fonctionnalité à venir')}
+    >
+      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+      </svg>
+      Vote Déjà Fermé
+    </Button>
+  </div>
+</Card>
 
         {/* Élections Récentes */}
         <Card className="mb-8">

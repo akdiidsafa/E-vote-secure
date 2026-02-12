@@ -50,12 +50,13 @@ export const authAPI = {
 export const usersAPI = {
   getAll: () => api.get('/auth/users/'),
   getById: (id) => api.get(`/auth/users/${id}/`),
-  create: (data) => api.post('/auth/register/', data),
+  create: (data) => api.post('/auth/register/', data), 
   update: (id, data) => api.put(`/auth/users/${id}/`, data),
   delete: (id) => api.delete(`/auth/users/${id}/`),
 };
 
 // Elections API
+
 export const electionsAPI = {
   getAll: (params) => api.get('/elections/', { params }),
   getById: (id) => api.get(`/elections/${id}/`),
@@ -65,7 +66,12 @@ export const electionsAPI = {
   open: (id) => api.post(`/elections/${id}/open/`),
   close: (id) => api.post(`/elections/${id}/close/`),
   getStats: (id) => api.get(`/elections/${id}/stats/`),
-  assignVoters: (data) => api.post('/elections/assign-voters/', data),
+  assignVoters: (electionId, voterIds) => {
+  return api.post('/elections/assign-voters/', {
+    election_id: electionId,
+    voter_ids: voterIds
+  });
+},
   getVoters: (id) => api.get(`/elections/${id}/voters/`),
 };
 

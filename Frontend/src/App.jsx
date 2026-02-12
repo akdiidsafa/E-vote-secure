@@ -13,9 +13,12 @@ import CreateElectionPage from './pages/Admin/CreateElectionPage';
 import EditElectionPage from './pages/Admin/EditElectionPage';
 import CandidatesPage from './pages/Admin/CandidatesPage';
 import VotersPage from './pages/Admin/VotersPage';
+import AssignmentPage from './pages/Admin/AssignmentPage';  
+import ResultsPage from './pages/Admin/ResultsPage';    
+import ViewElectionPage from './pages/Admin/ViewElectionPage';    
 
 // Voter Pages
-import VoterDashboardPage from './pages/Voter/VoterDashboardPage';  // ← CORRIGÉ!
+import VoterDashboardPage from './pages/Voter/VoterDashboardPage';
 
 function App() {
   return (
@@ -75,6 +78,31 @@ function App() {
               </ProtectedRoute>
             }
           />
+          {/* ← AJOUTER CES DEUX ROUTES ICI */}
+          <Route
+            path="/admin/assignment"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AssignmentPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/results"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <ResultsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+          path="/admin/elections/:id"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <ViewElectionPage />
+              </ProtectedRoute>
+              }
+           />
 
           {/* Voter Routes */}
           <Route

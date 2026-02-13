@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Vote, TrendingUp, Plus, UserPlus, UserCheck } from 'lucide-react';
+import { Users, Vote, TrendingUp, Plus, UserPlus, UserCheck, Lock, LockOpen } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { useNavigate } from 'react-router-dom';
 import { electionsAPI, usersAPI } from '../../services/api';
-
 
 const AdminDashboardPage = () => {
   const { user, logout } = useAuth();
@@ -20,8 +19,11 @@ const AdminDashboardPage = () => {
     participationRate: 0,
   });
   const [recentElections, setRecentElections] = useState([]);
+  const [elections, setElections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showElectionSelector, setShowElectionSelector] = useState(false);
+  const [actionType, setActionType] = useState(null); // 'open' or 'close'
 
   useEffect(() => {
     fetchDashboardData();
@@ -36,16 +38,16 @@ const AdminDashboardPage = () => {
       const electionsResponse = await electionsAPI.getAll();
       console.log('Elections response:', electionsResponse.data);
       
-      // Handle both array and object responses
-      const elections = Array.isArray(electionsResponse.data) 
+      const electionsData = Array.isArray(electionsResponse.data) 
         ? electionsResponse.data 
         : electionsResponse.data.results || [];
+      
+      setElections(electionsData);
       
       // Fetch users
       const usersResponse = await usersAPI.getAll();
       console.log('Users response:', usersResponse.data);
       
-      // Handle both array and object responses
       const users = Array.isArray(usersResponse.data)
         ? usersResponse.data
         : usersResponse.data.results || [];
@@ -54,18 +56,18 @@ const AdminDashboardPage = () => {
       
       // Calculate stats
       const voters = users.filter(u => u.role === 'voter');
-      const activeElections = elections.filter(e => e.status === 'open');
-      const totalVotes = elections.reduce((sum, e) => sum + (e.total_votes || 0), 0);
+      const activeElections = electionsData.filter(e => e.status === 'open');
+      const totalVotes = electionsData.reduce((sum, e) => sum + (e.total_votes || 0), 0);
       
       setStats({
-        totalElections: elections.length,
+        totalElections: electionsData.length,
         activeElections: activeElections.length,
         totalVoters: voters.length,
         totalVotes: totalVotes,
         participationRate: voters.length > 0 ? ((totalVotes / voters.length) * 100).toFixed(1) : 0,
       });
       
-      setRecentElections(elections.slice(0, 5));
+      setRecentElections(electionsData.slice(0, 5));
       
     } catch (error) {
       console.error('Erreur:', error);
@@ -80,6 +82,75 @@ const AdminDashboardPage = () => {
     navigate('/login');
   };
 
+  // Ouvrir le vote
+  const handleOpenVote = () => {
+    const draftElections = elections.filter(e => e.status === 'draft');
+    
+    if (draftElections.length === 0) {
+      alert('❌ Aucune élection en brouillon à ouvrir.\n\nCréez d\'abord une élection avec des candidats et des électeurs assignés.');
+      return;
+    }
+
+    if (draftElections.length === 1) {
+      // Une seule élection en brouillon, ouvrir directement
+      openElection(draftElections[0].id, draftElections[0].title);
+    } else {
+      // Plusieurs élections, montrer le sélecteur
+      setActionType('open');
+      setShowElectionSelector(true);
+    }
+  };
+
+  // Fermer le vote
+  const handleCloseVote = () => {
+    const openElections = elections.filter(e => e.status === 'open');
+    
+    if (openElections.length === 0) {
+      alert('❌ Aucune élection ouverte à fermer.');
+      return;
+    }
+
+    if (openElections.length === 1) {
+      // Une seule élection ouverte, fermer directement
+      closeElection(openElections[0].id, openElections[0].title);
+    } else {
+      // Plusieurs élections ouvertes, montrer le sélecteur
+      setActionType('close');
+      setShowElectionSelector(true);
+    }
+  };
+
+  // Ouvrir une élection
+  const openElection = async (id, title) => {
+    if (window.confirm(`Voulez-vous ouvrir l'élection "${title}" ?`)) {
+      try {
+        await electionsAPI.open(id);
+        alert('✅ Vote ouvert avec succès!');
+        fetchDashboardData(); // Recharger
+      } catch (error) {
+        console.error('❌ Erreur:', error);
+        const errorMsg = error.response?.data?.error || 'Erreur lors de l\'ouverture du vote';
+        alert('❌ ' + errorMsg);
+      }
+    }
+    setShowElectionSelector(false);
+  };
+
+  // Fermer une élection
+  const closeElection = async (id, title) => {
+    if (window.confirm(`⚠️ Voulez-vous vraiment fermer l'élection "${title}" ?\n\nAprès fermeture, aucun vote ne pourra plus être soumis.`)) {
+      try {
+        await electionsAPI.close(id);
+        alert('✅ Vote fermé avec succès!');
+        fetchDashboardData(); // Recharger
+      } catch (error) {
+        console.error('❌ Erreur:', error);
+        alert('Erreur lors de la fermeture du vote');
+      }
+    }
+    setShowElectionSelector(false);
+  };
+
   const getStatusBadge = (status) => {
     const statusConfig = {
       'draft': { label: 'Brouillon', variant: 'secondary' },
@@ -90,6 +161,15 @@ const AdminDashboardPage = () => {
     };
     const config = statusConfig[status] || statusConfig['draft'];
     return <Badge variant={config.variant}>{config.label}</Badge>;
+  };
+
+  const getElectionsToShow = () => {
+    if (actionType === 'open') {
+      return elections.filter(e => e.status === 'draft');
+    } else if (actionType === 'close') {
+      return elections.filter(e => e.status === 'open');
+    }
+    return [];
   };
 
   if (loading) {
@@ -239,67 +319,63 @@ const AdminDashboardPage = () => {
 
         {/* Actions Rapides */}
         <Card className="mb-8">
-  <h3 className="text-lg font-semibold mb-4">Actions Rapides</h3>
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-    <Button 
-      variant="primary" 
-      className="w-full justify-center"
-      onClick={() => navigate('/admin/elections/create')}
-    >
-      <Plus className="w-5 h-5 mr-2" />
-      Créer une Nouvelle Élection
-    </Button>
-    
-    <Button 
-      variant="primary" 
-      className="w-full justify-center"
-      onClick={() => navigate('/admin/candidates')}
-    >
-      <Users className="w-5 h-5 mr-2" />
-      Gérer les Candidats
-    </Button>
-    
-    <Button 
-      variant="primary" 
-      className="w-full justify-center"
-      onClick={() => navigate('/admin/voters')}
-    >
-      <UserPlus className="w-5 h-5 mr-2" />
-      Gérer les Électeurs
-    </Button>
-    
-    <Button 
-      variant="success" 
-      className="w-full justify-center"
-      onClick={() => navigate('/admin/assignment')}
-    >
-      <UserCheck className="w-5 h-5 mr-2" />
-      Assigner aux Élections
-    </Button>
-    
-    <Button 
-      variant="success"
-      className="w-full justify-center"
-      onClick={() => alert('Ouvrir le vote - Fonctionnalité à venir')}
-    >
-      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
-      </svg>
-      Ouvrir le Vote
-    </Button>
-    
-    <Button 
-      variant="secondary"
-      className="w-full justify-center"
-      onClick={() => alert('Fermer le vote - Fonctionnalité à venir')}
-    >
-      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-      </svg>
-      Vote Déjà Fermé
-    </Button>
-  </div>
-</Card>
+          <h3 className="text-lg font-semibold mb-4">Actions Rapides</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <Button 
+              variant="primary" 
+              className="w-full justify-center"
+              onClick={() => navigate('/admin/elections/create')}
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Créer une Nouvelle Élection
+            </Button>
+            
+            <Button 
+              variant="primary" 
+              className="w-full justify-center"
+              onClick={() => navigate('/admin/candidates')}
+            >
+              <Users className="w-5 h-5 mr-2" />
+              Gérer les Candidats
+            </Button>
+            
+            <Button 
+              variant="primary" 
+              className="w-full justify-center"
+              onClick={() => navigate('/admin/voters')}
+            >
+              <UserPlus className="w-5 h-5 mr-2" />
+              Gérer les Électeurs
+            </Button>
+            
+            <Button 
+              variant="success" 
+              className="w-full justify-center"
+              onClick={() => navigate('/admin/assignment')}
+            >
+              <UserCheck className="w-5 h-5 mr-2" />
+              Assigner aux Élections
+            </Button>
+            
+            <Button 
+              variant="success"
+              className="w-full justify-center"
+              onClick={handleOpenVote}
+            >
+              <Lock className="w-5 h-5 mr-2" />
+              Ouvrir le Vote
+            </Button>
+            
+            <Button 
+              variant="danger"
+              className="w-full justify-center"
+              onClick={handleCloseVote}
+            >
+              <LockOpen className="w-5 h-5 mr-2" />
+              Fermer le Vote
+            </Button>
+          </div>
+        </Card>
 
         {/* Élections Récentes */}
         <Card className="mb-8">
@@ -350,7 +426,12 @@ const AdminDashboardPage = () => {
                         <div className="flex space-x-2">
                           <button 
                             onClick={() => navigate(`/admin/elections/${election.id}/edit`)}
-                            className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                            className={`font-medium text-sm ${
+                              election.status === 'open' || election.status === 'closed'
+                                ? 'text-gray-400 cursor-not-allowed'
+                                : 'text-blue-600 hover:text-blue-700'
+                            }`}
+                            disabled={election.status === 'open' || election.status === 'closed'}
                           >
                             Modifier
                           </button>
@@ -390,6 +471,49 @@ const AdminDashboardPage = () => {
           </div>
         </Card>
       </div>
+
+      {/* Election Selector Modal */}
+      {showElectionSelector && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4">
+              {actionType === 'open' ? 'Sélectionnez l\'élection à ouvrir' : 'Sélectionnez l\'élection à fermer'}
+            </h2>
+            
+            <div className="space-y-3">
+              {getElectionsToShow().map((election) => (
+                <button
+                  key={election.id}
+                  onClick={() => actionType === 'open' ? openElection(election.id, election.title) : closeElection(election.id, election.title)}
+                  className="w-full text-left p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 transition-all"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold">{election.title}</p>
+                      <p className="text-sm text-gray-600">
+                        {new Date(election.start_date).toLocaleDateString('fr-FR')} - {new Date(election.end_date).toLocaleDateString('fr-FR')}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {election.total_candidates || 0} candidats • {election.total_voters || 0} électeurs
+                      </p>
+                    </div>
+                    {getStatusBadge(election.status)}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <Button
+                variant="secondary"
+                onClick={() => setShowElectionSelector(false)}
+              >
+                Annuler
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

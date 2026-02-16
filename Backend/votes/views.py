@@ -17,6 +17,8 @@ from .serializers import (
 )
 from elections.models import Election, ElectionVoterAssignment
 from candidates.models import Candidate
+from django.db.models import Count
+from votes.models import DecryptedBallot
 
 
 class SubmitVoteView(APIView):
@@ -301,3 +303,229 @@ class VoteReceiptView(APIView):
             'submitted_at': receipt.vote.submitted_at,
             'status': receipt.vote.status
         })
+class COPendingVotesView(APIView):
+    """
+    GET /api/votes/co/pending/ - Récupérer les votes en attente de validation CO
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        # Seul le CO peut accéder
+        if request.user.role != 'co':
+            return Response({
+                'error': 'Accès réservé au CO'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Récupérer les votes avec status='pending_co'
+        votes = Vote.objects.filter(
+            status='pending_co'
+        ).select_related('election', 'voter').order_by('-submitted_at')
+        
+        # Sérialiser
+        data = []
+        for vote in votes:
+            data.append({
+                'id': vote.id,
+                'election_id': vote.election.id,
+                'election_title': vote.election.title,
+                'voter_id': vote.voter.id,
+                'voter_username': vote.voter.username,
+                'm1_identity': vote.m1_identity,
+                'unique_id': vote.unique_id,
+                'submitted_at': vote.submitted_at,
+            })
+        
+        return Response(data, status=status.HTTP_200_OK)
+class COVerifyVoteView(APIView):
+    """
+    POST /api/votes/co/verify/ - Valider ou rejeter un vote
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        # Seul le CO peut accéder
+        if request.user.role != 'co':
+            return Response({
+                'error': 'Accès réservé au CO'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        vote_id = request.data.get('vote_id')
+        action = request.data.get('action')  # 'approve' ou 'reject'
+        notes = request.data.get('notes', '')
+        
+        if not vote_id or not action:
+            return Response({
+                'error': 'vote_id et action sont requis'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if action not in ['approve', 'reject']:
+            return Response({
+                'error': 'action doit être "approve" ou "reject"'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Récupérer le vote
+        vote = get_object_or_404(Vote, pk=vote_id)
+        
+        if vote.status != 'pending_co':
+            return Response({
+                'error': 'Ce vote n\'est pas en attente de validation CO'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if action == 'approve':
+            # Approuver → Passer au DE
+            vote.status = 'pending_de'
+            vote.co_verified_at = timezone.now()
+            vote.co_verified_by = request.user
+            vote.save()
+            
+            message = 'Vote approuvé et transféré au DE'
+        else:
+            # Rejeter
+            vote.status = 'rejected_co'
+            vote.co_verified_at = timezone.now()
+            vote.co_verified_by = request.user
+            vote.save()
+            
+            message = 'Vote rejeté'
+        
+        return Response({
+            'message': message,
+            'vote_id': vote.id,
+            'new_status': vote.status
+        }, status=status.HTTP_200_OK)
+class DEPendingBallotsView(APIView):
+    """
+    GET /api/votes/de/pending/ - Récupérer les bulletins approuvés par le CO
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        # Seul le DE peut accéder
+        if request.user.role != 'de':
+            return Response({
+                'error': 'Accès réservé au DE'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Filtrer par élection si fourni
+        election_id = request.query_params.get('election_id')
+        
+        # Récupérer les votes avec status='pending_de'
+        votes_query = Vote.objects.filter(status='pending_de')
+        
+        if election_id:
+            votes_query = votes_query.filter(election_id=election_id)
+        
+        votes = votes_query.select_related('election').order_by('-co_verified_at')
+        
+        # Sérialiser
+        data = []
+        for vote in votes:
+            data.append({
+                'id': vote.id,
+                'election_id': vote.election.id,
+                'election_title': vote.election.title,
+                'm2_ballot': vote.m2_ballot,
+                'unique_id': vote.unique_id,
+                'submitted_at': vote.submitted_at,
+                'co_verified_at': vote.co_verified_at,
+            })
+        
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class DEDecryptBallotView(APIView):
+    """
+    POST /api/votes/de/decrypt/ - Déchiffrer et comptabiliser un bulletin
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        # Seul le DE peut accéder
+        if request.user.role != 'de':
+            return Response({
+                'error': 'Accès réservé au DE'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        vote_id = request.data.get('vote_id')
+        
+        if not vote_id:
+            return Response({
+                'error': 'vote_id est requis'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Récupérer le vote
+        vote = get_object_or_404(Vote, pk=vote_id)
+        
+        if vote.status != 'pending_de':
+            return Response({
+                'error': 'Ce vote n\'est pas en attente de déchiffrement DE'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Marquer comme déchiffré
+        vote.status = 'counted'
+        vote.de_verified_at = timezone.now()
+        vote.de_verified_by = request.user
+        vote.save()
+        
+        return Response({
+            'message': 'Bulletin déchiffré et comptabilisé',
+            'vote_id': vote.id,
+            'new_status': vote.status
+        }, status=status.HTTP_200_OK)
+
+
+class DEElectionResultsView(APIView):
+    """
+    GET /api/votes/de/results/<election_id>/ - Obtenir les résultats d'une élection
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request, election_id):
+        # Seul le DE et l'admin peuvent accéder
+        if request.user.role not in ['de', 'admin']:
+            return Response({
+                'error': 'Accès réservé au DE et Admin'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        election = get_object_or_404(Election, pk=election_id)
+        
+        # Compter les votes comptabilisés
+        counted_votes = Vote.objects.filter(
+            election=election,
+            status='counted'
+        ).count()
+        
+        # Récupérer les bulletins déchiffrés
+        from votes.models import DecryptedBallot
+        decrypted_ballots = DecryptedBallot.objects.filter(
+            election=election
+        ).values('candidate_id').annotate(
+            vote_count=Count('id')
+        )
+        
+        # Formater les résultats
+        results = []
+        for ballot in decrypted_ballots:
+            from candidates.models import Candidate
+            try:
+                candidate = Candidate.objects.get(pk=ballot['candidate_id'])
+                results.append({
+                    'candidate_id': candidate.id,
+                    'candidate_name': candidate.name,
+                    'candidate_party': candidate.party,
+                    'vote_count': ballot['vote_count']
+                })
+            except Candidate.DoesNotExist:
+                pass
+        
+        # Trier par nombre de votes
+        results.sort(key=lambda x: x['vote_count'], reverse=True)
+        
+        return Response({
+            'election_id': election.id,
+            'election_title': election.title,
+            'total_counted': counted_votes,
+            'total_voters': election.total_voters,
+            'participation_rate': election.participation_rate,
+            'results': results
+        }, status=status.HTTP_200_OK)

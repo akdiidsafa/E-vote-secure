@@ -9,8 +9,8 @@ class VoteSubmitSerializer(serializers.Serializer):
     Receives the double-encrypted vote package from frontend
     """
     election_id = serializers.IntegerField()
-    m1_identity = serializers.CharField()  # Encrypted with CO's public key
-    m2_ballot = serializers.CharField()     # Encrypted with DE's public key
+    m1_identity = serializers.CharField()  
+    m2_ballot = serializers.CharField()    
     unique_id = serializers.CharField()
     
     def validate_unique_id(self, value):

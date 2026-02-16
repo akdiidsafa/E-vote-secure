@@ -1,46 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, Eye, TrendingUp, Lock } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, Award, Download, RefreshCw } from 'lucide-react';
+import AdminLayout from '../../components/layouts/AdminLayout';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
-import { electionsAPI, candidatesAPI, resultsAPI } from '../../services/api';
+import { electionsAPI, votesAPI } from '../../services/api';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const ResultsPage = () => {
   const navigate = useNavigate();
+  const { success, error: showError } = useNotification();
+
   const [elections, setElections] = useState([]);
-  const [selectedElection, setSelectedElection] = useState('');
-  const [candidates, setCandidates] = useState([]);
-  const [results, setResults] = useState([]);
+  const [selectedElection, setSelectedElection] = useState(null);
+  const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadElections();
   }, []);
 
-  useEffect(() => {
-    if (selectedElection) {
-      loadResults(selectedElection);
-    }
-  }, [selectedElection]);
-
   const loadElections = async () => {
     try {
       setLoading(true);
       const response = await electionsAPI.getAll();
-      const electionsData = Array.isArray(response.data)
-        ? response.data
-        : response.data.results || [];
+      const data = Array.isArray(response.data) ? response.data : response.data.results || [];
       
-      // Filtrer uniquement les élections fermées
-      const closedElections = electionsData.filter(e => e.status === 'closed');
-      setElections(closedElections);
+      // Filtrer les élections avec des votes
+      const electionsWithVotes = data.filter(e => e.total_votes > 0);
       
-      if (closedElections.length > 0) {
-        setSelectedElection(closedElections[0].id.toString());
+      setElections(electionsWithVotes);
+      
+      // Sélectionner la première élection par défaut
+      if (electionsWithVotes.length > 0 && !selectedElection) {
+        loadResults(electionsWithVotes[0].id);
+        setSelectedElection(electionsWithVotes[0]);
       }
-    } catch (error) {
-      console.error('❌ Erreur:', error);
+    } catch (err) {
+      console.error('❌ Erreur:', err);
+      showError('Erreur de chargement', 'Impossible de charger les élections');
     } finally {
       setLoading(false);
     }
@@ -48,414 +47,298 @@ const ResultsPage = () => {
 
   const loadResults = async (electionId) => {
     try {
-      // Charger les candidats de l'élection
-      const candidatesRes = await candidatesAPI.getByElection(electionId);
-      const candidatesData = Array.isArray(candidatesRes.data)
-        ? candidatesRes.data
-        : candidatesRes.data.results || [];
-      
-      setCandidates(candidatesData);
-
-      // Charger les résultats (si vous avez une API pour ça)
-      try {
-        const resultsRes = await resultsAPI.getByElection(electionId);
-        setResults(resultsRes.data);
-      } catch (err) {
-        // Si pas de résultats, utiliser les candidats avec 0 votes
-        const emptyResults = candidatesData.map((candidate, index) => ({
-          id: candidate.id,
-          candidate: candidate.name,
-          party: candidate.party,
-          votes: candidate.total_votes || 0,
-          percentage: 0,
-          color: ['bg-blue-500', 'bg-green-500', 'bg-red-500', 'bg-purple-500', 'bg-yellow-500'][index % 5]
-        }));
-        setResults(emptyResults);
-      }
-    } catch (error) {
-      console.error('❌ Erreur:', error);
+      setLoading(true);
+      const response = await votesAPI.getResults(electionId);
+      setResults(response.data);
+    } catch (err) {
+      console.error('❌ Erreur:', err);
+      showError('Erreur de chargement', 'Impossible de charger les résultats');
+      setResults(null);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const selectedElectionData = elections.find(e => e.id === parseInt(selectedElection));
-  const totalVotes = results.reduce((sum, r) => sum + r.votes, 0);
-  const totalVoters = selectedElectionData?.total_voters || 0;
-  const participationRate = totalVoters > 0 
-    ? ((totalVotes / totalVoters) * 100).toFixed(1)
-    : 0;
-
-  const handlePublish = () => {
-    if (window.confirm('Êtes-vous sûr de vouloir publier les résultats?\nLes électeurs pourront les consulter.')) {
-      alert('✅ Résultats publiés avec succès!');
-    }
+  const handleSelectElection = (election) => {
+    setSelectedElection(election);
+    loadResults(election.id);
   };
 
-  const handleDownload = () => {
-    const htmlContent = `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Résultats - ${selectedElectionData?.title}</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 20px;
-            background: #fff;
-        }
-        .header {
-            text-align: center;
-            border-bottom: 3px solid #2563eb;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
-        }
-        .header h1 {
-            color: #1e40af;
-            margin: 0;
-            font-size: 28px;
-        }
-        .header p {
-            color: #6b7280;
-            margin: 5px 0;
-        }
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        .stat-card {
-            background: #f3f4f6;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-        }
-        .stat-card h3 {
-            color: #6b7280;
-            font-size: 14px;
-            margin: 0 0 5px 0;
-        }
-        .stat-card p {
-            color: #1f2937;
-            font-size: 24px;
-            font-weight: bold;
-            margin: 0;
-        }
-        .results-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 30px;
-        }
-        .results-table th {
-            background: #2563eb;
-            color: white;
-            padding: 12px;
-            text-align: left;
-            font-weight: 600;
-        }
-        .results-table td {
-            padding: 12px;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        .results-table tr:hover {
-            background: #f9fafb;
-        }
-        .rank {
-            font-weight: bold;
-            color: #6b7280;
-            font-size: 18px;
-        }
-        .percentage {
-            font-size: 20px;
-            font-weight: bold;
-            color: #2563eb;
-        }
-        .progress-bar {
-            width: 100%;
-            height: 20px;
-            background: #e5e7eb;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-top: 5px;
-        }
-        .progress-fill {
-            height: 100%;
-            background: #2563eb;
-            transition: width 0.3s ease;
-        }
-        .footer {
-            text-align: center;
-            color: #6b7280;
-            font-size: 12px;
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #e5e7eb;
-        }
-        .info-box {
-            background: #fef3c7;
-            border-left: 4px solid #f59e0b;
-            padding: 15px;
-            margin-top: 20px;
-            border-radius: 4px;
-        }
-        .info-box p {
-            margin: 0;
-            color: #92400e;
-            font-size: 14px;
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>Résultats de l'Élection</h1>
-        <p>${selectedElectionData?.title}</p>
-        <p>Date: ${new Date().toLocaleDateString('fr-FR', { 
-          weekday: 'long', 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric' 
-        })}</p>
-    </div>
-
-    <div class="stats">
-        <div class="stat-card">
-            <h3>Votes Totaux</h3>
-            <p>${totalVotes}</p>
-        </div>
-        <div class="stat-card">
-            <h3>Électeurs Inscrits</h3>
-            <p>${totalVoters}</p>
-        </div>
-        <div class="stat-card">
-            <h3>Taux de Participation</h3>
-            <p>${participationRate}%</p>
-        </div>
-    </div>
-
-    <h2 style="color: #1e40af; margin-bottom: 15px;">Résultats Détaillés</h2>
+  const handleDownloadResults = () => {
+    if (!results) return;
     
-    <table class="results-table">
-        <thead>
-            <tr>
-                <th>Rang</th>
-                <th>Candidat</th>
-                <th>Parti</th>
-                <th>Votes</th>
-                <th>Pourcentage</th>
-            </tr>
-        </thead>
-        <tbody>
-            ${results.map((result, index) => `
-                <tr>
-                    <td class="rank">#${index + 1}</td>
-                    <td><strong>${result.candidate}</strong></td>
-                    <td>${result.party || 'Indépendant'}</td>
-                    <td>${result.votes} votes</td>
-                    <td>
-                        <span class="percentage">${result.percentage}%</span>
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: ${result.percentage}%"></div>
-                        </div>
-                    </td>
-                </tr>
-            `).join('')}
-        </tbody>
-    </table>
-
-    <div class="info-box">
-        <p><strong>Information:</strong> Ce document contient les résultats officiels de l'élection. 
-        Les votes ont été comptés de manière sécurisée et anonyme.</p>
-    </div>
-
-    <div class="footer">
-        <p>Vote Électronique Sécurisé - Système de Vote Crypté</p>
-        <p>Document généré le ${new Date().toLocaleString('fr-FR')}</p>
-    </div>
-</body>
-</html>
-    `;
-
-    const blob = new Blob([htmlContent], { type: 'text/html' });
+    // Créer un CSV
+    let csv = 'Position,Candidat,Parti,Nombre de votes,Pourcentage\n';
+    results.results.forEach((result, index) => {
+      const percentage = results.total_counted > 0 
+        ? ((result.vote_count / results.total_counted) * 100).toFixed(1)
+        : '0';
+      csv += `${index + 1},${result.candidate_name},${result.candidate_party || 'N/A'},${result.vote_count},${percentage}%\n`;
+    });
+    
+    // Télécharger
+    const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `resultats_${selectedElectionData?.title}_${new Date().toISOString().split('T')[0]}.html`;
+    a.download = `resultats_${selectedElection.title.replace(/\s+/g, '_')}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
     
-    alert('✅ Les résultats ont été téléchargés avec succès!');
+    success('Téléchargement réussi!', 'Les résultats ont été téléchargés en CSV');
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-600">Chargement...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className="text-purple-600 hover:text-purple-800"
-                onClick={() => navigate('/admin/dashboard')}
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Retour
-              </Button>
-              <div>
-                <h1 className="text-xl font-semibold">Gestion des Résultats</h1>
-                <p className="text-sm text-gray-600">Visualisez et publiez les résultats des élections fermées</p>
-              </div>
-            </div>
-            {selectedElection && (
-              <div className="flex space-x-2">
-                <Button
-                  variant="secondary"
-                  onClick={handleDownload}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Télécharger
-                </Button>
-                <Button
-                  variant="primary"
-                  onClick={handlePublish}
-                >
-                  <Eye className="w-4 h-4 mr-2" />
-                  Publier les Résultats
-                </Button>
-              </div>
-            )}
+    <AdminLayout>
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Résultats des Élections</h1>
+            <p className="text-gray-600">Consultez les résultats détaillés de chaque élection</p>
           </div>
+          <Button variant="ghost" onClick={loadElections}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Actualiser
+          </Button>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {elections.length === 0 ? (
-          <Card className="text-center py-12">
-            <Lock className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Aucune élection fermée
-            </h3>
-            <p className="text-gray-600 mb-4">
-              Les résultats ne sont disponibles que pour les élections fermées.
-            </p>
-            <Button onClick={() => navigate('/admin/elections')}>
-              Voir les élections
-            </Button>
-          </Card>
-        ) : (
-          <>
-            {/* Election Selector */}
-            <Card className="mb-6">
-              <h3 className="font-semibold mb-4">Sélectionner une élection fermée</h3>
-              <select
-                value={selectedElection}
-                onChange={(e) => setSelectedElection(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                {elections.map(election => (
-                  <option key={election.id} value={election.id}>
-                    {election.title} - Fermée le {new Date(election.end_date).toLocaleDateString('fr-FR')}
-                  </option>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Sidebar - Elections */}
+        <div className="lg:col-span-1">
+          <Card>
+            <h2 className="text-lg font-semibold mb-4">Élections</h2>
+            
+            {elections.length === 0 ? (
+              <div className="text-center py-8">
+                <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-600 text-sm">Aucune élection</p>
+                <p className="text-xs text-gray-500 mt-2">
+                  Les élections avec des votes apparaîtront ici
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {elections.map((election) => (
+                  <div
+                    key={election.id}
+                    onClick={() => handleSelectElection(election)}
+                    className={`p-3 rounded-lg cursor-pointer transition-all ${
+                      selectedElection?.id === election.id
+                        ? 'bg-blue-50 border-2 border-blue-600'
+                        : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
+                    }`}
+                  >
+                    <p className="font-semibold text-sm">{election.title}</p>
+                    <div className="flex items-center justify-between mt-2">
+                      <Badge 
+                        variant={election.status === 'closed' ? 'secondary' : 'success'}
+                        className="text-xs"
+                      >
+                        {election.status === 'closed' ? 'Fermée' : election.status === 'open' ? 'Ouverte' : 'Draft'}
+                      </Badge>
+                      <p className="text-xs text-gray-600">
+                        {election.total_votes} vote(s)
+                      </p>
+                    </div>
+                  </div>
                 ))}
-              </select>
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* Main Content - Results */}
+        <div className="lg:col-span-3">
+          {!selectedElection ? (
+            <Card className="text-center py-12">
+              <BarChart3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Sélectionnez une élection
+              </h3>
+              <p className="text-gray-600">
+                Choisissez une élection dans la liste pour voir ses résultats
+              </p>
             </Card>
-
-            {selectedElection && (
-              <>
-                {/* Stats */}
-                <div className="grid grid-cols-4 gap-6 mb-6">
-                  <Card>
-                    <p className="text-sm text-gray-600 mb-1">Votes Totaux</p>
-                    <p className="text-3xl font-bold">{totalVotes}</p>
-                  </Card>
-                  <Card>
-                    <p className="text-sm text-gray-600 mb-1">Électeurs Inscrits</p>
-                    <p className="text-3xl font-bold">{totalVoters}</p>
-                  </Card>
-                  <Card>
-                    <p className="text-sm text-gray-600 mb-1">Taux de Participation</p>
-                    <p className="text-3xl font-bold">{participationRate}%</p>
-                  </Card>
-                  <Card>
-                    <p className="text-sm text-gray-600 mb-1">Statut</p>
-                    <Badge variant="danger" className="text-lg px-3 py-1">Fermée</Badge>
-                  </Card>
+          ) : loading ? (
+            <Card className="text-center py-12">
+              <p className="text-gray-600">Chargement des résultats...</p>
+            </Card>
+          ) : !results ? (
+            <Card className="text-center py-12">
+              <BarChart3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Aucun résultat disponible
+              </h3>
+              <p className="text-gray-600">
+                Les résultats apparaîtront une fois les votes déchiffrés par le DE
+              </p>
+            </Card>
+          ) : (
+            <>
+              {/* Header */}
+              <Card className="mb-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">{selectedElection.title}</h2>
+                    {selectedElection.description && (
+                      <p className="text-gray-600 mt-1">{selectedElection.description}</p>
+                    )}
+                  </div>
+                  <Button variant="primary" onClick={handleDownloadResults}>
+                    <Download className="w-4 h-4 mr-2" />
+                    Télécharger CSV
+                  </Button>
                 </div>
+              </Card>
 
-                {/* Results Table */}
-                <Card className="mb-6">
-                  <h3 className="text-lg font-semibold mb-4">Résultats Détaillés</h3>
-                  
-                  {results.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-gray-600">Aucun résultat disponible</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {results.map((result, index) => (
-                        <div key={result.id} className="border-b border-gray-200 pb-4 last:border-b-0">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center space-x-3">
-                              <span className="text-2xl font-bold text-gray-400">#{index + 1}</span>
-                              <div>
-                                <p className="font-semibold text-lg">{result.candidate}</p>
-                                <p className="text-sm text-gray-600">{result.party || 'Indépendant'}</p>
-                                <p className="text-sm text-gray-600">{result.votes} votes ({result.percentage}%)</p>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-3xl font-bold">{result.percentage}%</p>
-                            </div>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-3">
-                            <div
-                              className={`${result.color} h-3 rounded-full transition-all duration-500`}
-                              style={{ width: `${result.percentage}%` }}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </Card>
-
-                {/* Info Box */}
-                <Card className="bg-green-50 border-green-200">
-                  <div className="flex items-start space-x-3">
-                    <div className="flex-shrink-0">
-                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                        <TrendingUp className="w-5 h-5 text-green-600" />
-                      </div>
+              {/* Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <Card>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <BarChart3 className="w-6 h-6 text-blue-600" />
                     </div>
                     <div>
-                      <h4 className="font-semibold text-green-900 mb-1">Élection Terminée</h4>
-                      <p className="text-sm text-green-800">
-                        Cette élection est fermée. Les résultats sont finaux et peuvent être publiés.
+                      <p className="text-sm text-gray-600">Votes comptés</p>
+                      <p className="text-2xl font-bold text-gray-900">{results.total_counted}</p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <Users className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Électeurs assignés</p>
+                      <p className="text-2xl font-bold text-gray-900">{results.total_voters}</p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                      <TrendingUp className="w-6 h-6 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Participation</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {results.participation_rate ? `${results.participation_rate.toFixed(1)}%` : '0%'}
                       </p>
                     </div>
                   </div>
                 </Card>
-              </>
-            )}
-          </>
-        )}
+
+                <Card>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                      <Award className="w-6 h-6 text-yellow-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Candidats</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {results.results ? results.results.length : 0}
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              {/* Results */}
+              <Card>
+                <h3 className="text-xl font-semibold mb-6">Classement des candidats</h3>
+
+                {results.results && results.results.length > 0 ? (
+                  <div className="space-y-4">
+                    {results.results.map((result, index) => {
+                      const percentage = results.total_counted > 0 
+                        ? ((result.vote_count / results.total_counted) * 100).toFixed(1)
+                        : '0';
+                      
+                      return (
+                        <div key={result.candidate_id} className="relative">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center space-x-4">
+                              {/* Position Badge */}
+                              <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg ${
+                                index === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 shadow-lg' : 
+                                index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-500' : 
+                                index === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-600' : 'bg-gray-400'
+                              }`}>
+                                {index + 1}
+                              </div>
+
+                              {/* Candidate Info */}
+                              <div>
+                                <div className="flex items-center space-x-2">
+                                  <p className="font-bold text-lg text-gray-900">{result.candidate_name}</p>
+                                  {index === 0 && (
+                                    <Award className="w-5 h-5 text-yellow-500" />
+                                  )}
+                                </div>
+                                {result.candidate_party && (
+                                  <p className="text-sm text-gray-600">{result.candidate_party}</p>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Vote Count */}
+                            <div className="text-right">
+                              <p className="text-3xl font-bold text-gray-900">{result.vote_count}</p>
+                              <p className="text-sm text-gray-600">{percentage}%</p>
+                            </div>
+                          </div>
+
+                          {/* Progress Bar */}
+                          <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                            <div 
+                              className={`h-3 rounded-full transition-all duration-500 ${
+                                index === 0 ? 'bg-gradient-to-r from-yellow-400 to-yellow-600' : 
+                                index === 1 ? 'bg-gradient-to-r from-gray-400 to-gray-600' : 
+                                index === 2 ? 'bg-gradient-to-r from-orange-400 to-orange-600' : 'bg-gray-400'
+                              }`}
+                              style={{ width: `${percentage}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <BarChart3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">Aucun vote comptabilisé</p>
+                    <p className="text-sm text-gray-500 mt-2">
+                      Les résultats apparaîtront une fois les votes déchiffrés par le DE
+                    </p>
+                  </div>
+                )}
+              </Card>
+
+              {/* Info */}
+              <Card className="mt-6 bg-blue-50 border-blue-200">
+                <div className="flex items-start space-x-3">
+                  <BarChart3 className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
+                  <div>
+                    <h4 className="font-semibold text-blue-900 mb-2">À propos des résultats</h4>
+                    <ul className="text-sm text-blue-800 space-y-1">
+                      <li>• Les résultats sont basés uniquement sur les votes déchiffrés par le DE</li>
+                      <li>• L'anonymat des votants est préservé à tout moment</li>
+                      <li>• Les votes sont comptabilisés de manière sécurisée et vérifiable</li>
+                    </ul>
+                  </div>
+                </div>
+              </Card>
+            </>
+          )}
+        </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 };
 

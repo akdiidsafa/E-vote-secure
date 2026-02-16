@@ -66,6 +66,8 @@ export const electionsAPI = {
   open: (id) => api.post(`/elections/${id}/open/`),
   close: (id) => api.post(`/elections/${id}/close/`),
   getStats: (id) => api.get(`/elections/${id}/stats/`),
+  getPublicKeys: (id) => api.get(`/elections/${id}/public_keys/`),
+
   assignVoters: (electionId, voterIds) => {
   return api.post('/elections/assign-voters/', {
     election_id: electionId,
@@ -100,6 +102,8 @@ export const votesAPI = {
   // DE endpoints
   getPendingBallots: (electionId) => api.get('/votes/de/pending/', { params: { election_id: electionId } }),
   decryptBallot: (data) => api.post('/votes/de/decrypt/', data),
+  getResults: (electionId) => api.get(`/votes/de/results/${electionId}/`),
+  
 };
 
 // Results API

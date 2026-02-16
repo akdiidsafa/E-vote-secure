@@ -101,6 +101,27 @@ class Election(models.Model):
         if self.total_voters == 0:
             return 0.0
         return round((self.total_votes / self.total_voters) * 100, 2)
+      # Clés de chiffrement
+    co_public_key = models.TextField(blank=True, null=True, help_text="Clé publique CO (RSA)")
+    co_private_key = models.TextField(blank=True, null=True, help_text="Clé privée CO (RSA)")
+    de_public_key = models.TextField(blank=True, null=True, help_text="Clé publique DE (RSA)")
+    de_private_key = models.TextField(blank=True, null=True, help_text="Clé privée DE (RSA)")
+    
+    def generate_encryption_keys(self):
+        """Génère les paires de clés pour CO et DE"""
+        from votes.crypto_utils import generate_keypair
+        
+        # Générer clés CO
+        co_pub, co_priv = generate_keypair()
+        self.co_public_key = co_pub
+        self.co_private_key = co_priv
+        
+        # Générer clés DE
+        de_pub, de_priv = generate_keypair()
+        self.de_public_key = de_pub
+        self.de_private_key = de_priv
+        
+        self.save()
 
 
 class ElectionVoterAssignment(models.Model):

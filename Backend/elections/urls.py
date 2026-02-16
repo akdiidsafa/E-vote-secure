@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     ElectionListCreateView, ElectionDetailView, ElectionOpenView,
-    ElectionCloseView, AssignVotersView, ElectionVotersView, ElectionStatsView,
+    ElectionCloseView, AssignVotersView, ElectionVotersView, ElectionStatsView,ElectionPublicKeysView,
 )
 
 app_name = 'elections'
@@ -13,5 +13,6 @@ urlpatterns = [
     path('<int:pk>/close/', ElectionCloseView.as_view(), name='election-close'),
     path('assign-voters/', AssignVotersView.as_view(), name='assign-voters'),
     path('<int:pk>/voters/', ElectionVotersView.as_view(), name='election-voters'),
+    path('<int:pk>/public_keys/', ElectionPublicKeysView.as_view(), name='election-public-keys'),  
     path('<int:pk>/stats/', ElectionStatsView.as_view(), name='election-stats'),
 ]

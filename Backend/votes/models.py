@@ -103,6 +103,25 @@ class Vote(models.Model):
     
     def __str__(self):
         return f"Vote {self.unique_id} - {self.election.title}"
+     # CO verification
+    co_verified_at = models.DateTimeField(null=True, blank=True)
+    co_verified_by = models.ForeignKey(
+        'authentication.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='co_verified_votes'
+    )
+    
+    # DE verification
+    de_verified_at = models.DateTimeField(null=True, blank=True)
+    de_verified_by = models.ForeignKey(
+        'authentication.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='de_verified_votes'
+    )
 
 
 class DecryptedBallot(models.Model):

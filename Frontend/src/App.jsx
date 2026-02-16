@@ -25,7 +25,10 @@ import VoterDashboardPage from './pages/Voter/VoterDashboardPage';
 import VoterRegistrationPage from './pages/Voter/VoterRegistrationPage';
 import VoterPendingPage from './pages/Voter/VoterPendingPage';
 import ConfirmationPage from './pages/Voter/ConfirmationPage';
-import VotePage from './pages/Voter/VotePage';   
+import VotePage from './pages/Voter/VotePage'; 
+// CO et DE Pages
+import CODashboardPage from './pages/CO/CODashboardPage';
+import DEDashboardPage from './pages/DE/DEDashboardPage';  
 
 function App() {
   return (
@@ -38,6 +41,8 @@ function App() {
             <Route path="/" element={<Navigate to="/login" replace />} />
             
             {/* Voter Registration Routes (Public) */}
+            <Route path="/voter/register/:token" element={<VoterRegistrationPage />} />
+            <Route path="/voter/pending" element={<VoterPendingPage />} />
                       {/* Voter Routes */}
             <Route
               path="/voter/dashboard"
@@ -164,6 +169,25 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            {/* CO Routes */}
+            <Route
+                path="/co/dashboard"
+                element={
+                  <ProtectedRoute allowedRoles={['co']}>
+                    <CODashboardPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* DE Routes */}
+              <Route
+                path="/de/dashboard"
+                element={
+                  <ProtectedRoute allowedRoles={['de']}>
+                    <DEDashboardPage />
+                  </ProtectedRoute>
+                }
+              />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/login" replace />} />

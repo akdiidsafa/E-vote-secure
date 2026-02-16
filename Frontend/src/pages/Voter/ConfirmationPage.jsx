@@ -5,7 +5,7 @@ import { CheckCircle } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 
-// ... reste du code identique
+
 
 const ConfirmationPage = () => {
   const navigate = useNavigate();

@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from django.db.models import Count, Q
 from django.utils import timezone
+from rest_framework.decorators import action
 
 from .models import Election, ElectionVoterAssignment
 from .serializers import (
@@ -30,16 +31,21 @@ class ElectionListCreateView(generics.ListCreateAPIView):
             return ElectionCreateSerializer
         return ElectionSerializer
     
+    def get_serializer_context(self):
+        """Passer le request au serializer"""
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
     def get_queryset(self):
         """Filter elections based on user role"""
         user = self.request.user
         queryset = Election.objects.all()
         
-        # Voters only see elections they're assigned to and that are active
+        # Voters only see elections they're assigned to
         if user.role == 'voter':
             queryset = queryset.filter(
-                assigned_voters__voter=user,
-                status='open'
+                assigned_voters__voter=user
             )
         
         # Add status filter if provided
@@ -63,6 +69,12 @@ class ElectionDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Election.objects.all()
     serializer_class = ElectionSerializer
     permission_classes = [permissions.IsAuthenticated]
+    
+    def get_serializer_context(self):
+        """Passer le request au serializer"""
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
     
     def get_queryset(self):
         """Filter based on user role"""
@@ -174,10 +186,10 @@ class AssignVotersView(APIView):
                 'error': 'Certains électeurs sont invalides.'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # ← FIX: SUPPRIMER toutes les anciennes assignations
+        # SUPPRIMER toutes les anciennes assignations
         ElectionVoterAssignment.objects.filter(election=election).delete()
         
-        # ← FIX: CRÉER les nouvelles assignations
+        # CRÉER les nouvelles assignations
         assignments_created = 0
         for voter in voters:
             ElectionVoterAssignment.objects.create(
@@ -239,4 +251,25 @@ class ElectionStatsView(APIView):
             'end_date': election.end_date,
         }
         
-       
+        return Response(stats, status=status.HTTP_200_OK)
+
+
+class ElectionPublicKeysView(APIView):
+    """
+    GET /api/elections/<id>/public_keys/ - Retourne les clés publiques CO et DE
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request, pk):
+        election = get_object_or_404(Election, pk=pk)
+        
+        # Générer les clés si elles n'existent pas
+        if not election.co_public_key or not election.de_public_key:
+            print(f"🔑 Génération des clés pour l'élection {election.id}...")
+            election.generate_encryption_keys()
+            print(f"✅ Clés générées!")
+        
+        return Response({
+            'co_public_key': election.co_public_key,
+            'de_public_key': election.de_public_key,
+        })

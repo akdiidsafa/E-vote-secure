@@ -147,14 +147,6 @@ const LoginPage = () => {
               </a>
             </div>
           </form>
-
-          {/* Test Credentials */}
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-xs text-gray-500 text-center">
-              Test credentials:<br />
-              admin / voter / co / de (any password)
-            </p>
-          </div>
         </div>
       </div>
     </div>

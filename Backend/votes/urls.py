@@ -1,7 +1,10 @@
 from django.urls import path
 from .views import (
     SubmitVoteView, MyVoteStatusView, COPendingVotesView,
-    COVerifyVoteView, DEPendingBallotsView, DEDecryptBallotView, VoteReceiptView,
+    COVerifyVoteView, DEPendingBallotsView, DEDecryptBallotView, VoteReceiptView,DEElectionResultsView,  
+   
+     
+    
 )
 
 app_name = 'votes'
@@ -13,5 +16,12 @@ urlpatterns = [
     path('co/pending/', COPendingVotesView.as_view(), name='co-pending-votes'),
     path('co/verify/', COVerifyVoteView.as_view(), name='co-verify-vote'),
     path('de/pending/', DEPendingBallotsView.as_view(), name='de-pending-ballots'),
+    path('de/decrypt/', DEDecryptBallotView.as_view(), name='de-decrypt-ballot'),    
+    # CO endpoints
+    path('co/pending/', COPendingVotesView.as_view(), name='co-pending-votes'),
+    path('co/verify/', COVerifyVoteView.as_view(), name='co-verify-vote'),
+     # DE endpoints
+    path('de/pending/', DEPendingBallotsView.as_view(), name='de-pending-ballots'),
     path('de/decrypt/', DEDecryptBallotView.as_view(), name='de-decrypt-ballot'),
+    path('de/results/<int:election_id>/', DEElectionResultsView.as_view(), name='de-results'),
 ]

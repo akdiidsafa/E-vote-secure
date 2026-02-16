@@ -86,8 +86,10 @@ export const candidatesAPI = {
 };
 
 // Votes API
+
 export const votesAPI = {
   submit: (voteData) => api.post('/votes/submit/', voteData),
+  create: (voteData) => api.post('/votes/submit/', voteData), 
   getMyVoteStatus: (electionId) => api.get('/votes/my-vote/', { params: { election_id: electionId } }),
   verifyReceipt: (receiptCode) => api.get('/votes/receipt/', { params: { code: receiptCode } }),
   
@@ -106,6 +108,30 @@ export const resultsAPI = {
   publish: (electionId) => api.post(`/results/publish/${electionId}/`),
   getByElection: (electionId) => api.get(`/results/${electionId}/`),
   getPublished: () => api.get('/results/'),
+};
+
+
+// Invitations API
+export const invitationsAPI = {
+  getAll: () => api.get('/auth/invitations/'),
+  getByToken: (token) => api.get(`/auth/voter/invitation/${token}/`),
+  create: (data) => api.post('/auth/invitations/', data),
+  
+  // Votant
+  register: (data) => api.post('/auth/voter/register/', data),
+  
+  // Admin
+  getPending: () => api.get('/auth/admin/pending-invitations/'),
+  validate: (invitationId, action) => api.post('/auth/admin/validate-voter/', {
+    invitation_id: invitationId,
+    action: action  // 'approve' or 'reject'
+  }),
+};
+
+// Profile API
+export const profileAPI = {
+  get: () => api.get('/auth/profile/'),
+  update: (data) => api.put('/auth/profile/', data),
 };
 
 export default api;

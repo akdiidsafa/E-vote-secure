@@ -5,11 +5,13 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { electionsAPI, usersAPI } from '../../services/api';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const AssignmentPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const electionIdFromUrl = searchParams.get('election');
+  const { success, error: showError } = useNotification();
 
   const [elections, setElections] = useState([]);
   const [voters, setVoters] = useState([]);
@@ -21,18 +23,14 @@ const AssignmentPage = () => {
     loadData();
   }, []);
 
-  // Pré-sélectionner l'élection depuis l'URL
   useEffect(() => {
     if (electionIdFromUrl && elections.length > 0 && !selectedElection) {
-      console.log('🔵 Pré-sélection élection:', electionIdFromUrl);
       setSelectedElection(electionIdFromUrl);
     }
   }, [electionIdFromUrl, elections]);
 
-  // Charger les assignations quand une élection est sélectionnée
   useEffect(() => {
     if (selectedElection && voters.length > 0) {
-      console.log('🔵 Chargement assignations pour élection:', selectedElection);
       loadAssignedVoters(selectedElection);
     }
   }, [selectedElection, voters]);
@@ -41,15 +39,12 @@ const AssignmentPage = () => {
     try {
       setLoading(true);
       
-      // Charger les élections
       const electionsRes = await electionsAPI.getAll();
       const electionsData = Array.isArray(electionsRes.data) 
         ? electionsRes.data 
         : electionsRes.data.results || [];
       setElections(electionsData);
-      console.log('✅ Élections chargées:', electionsData.length);
 
-      // Charger les électeurs
       const usersRes = await usersAPI.getAll();
       const usersData = Array.isArray(usersRes.data)
         ? usersRes.data
@@ -57,20 +52,17 @@ const AssignmentPage = () => {
       
       const votersOnly = usersData.filter(u => u.role === 'voter');
       setVoters(votersOnly);
-      console.log('✅ Électeurs chargés:', votersOnly.length);
       
-      // Initialiser les assignations (tous non assignés par défaut)
       setAssignments(votersOnly.map(v => ({ ...v, assigned: false })));
 
     } catch (error) {
       console.error('❌ Erreur:', error);
-      alert('Erreur lors du chargement des données');
+      showError('Erreur de chargement', 'Impossible de charger les données');
     } finally {
       setLoading(false);
     }
   };
 
-  // Charger les électeurs déjà assignés à une élection
   const loadAssignedVoters = async (electionId) => {
     try {
       const response = await electionsAPI.getVoters(electionId);
@@ -78,14 +70,10 @@ const AssignmentPage = () => {
         ? response.data
         : response.data.results || [];
       
-      // Extraire les IDs des électeurs assignés
       const assignedVoterIds = assignedData.map(item => 
         item.voter?.id || item.voter_details?.id
       ).filter(Boolean);
       
-      console.log('✅ Électeurs déjà assignés:', assignedVoterIds);
-      
-      // Mettre à jour les assignations
       setAssignments(voters.map(v => ({
         ...v,
         assigned: assignedVoterIds.includes(v.id)
@@ -93,7 +81,6 @@ const AssignmentPage = () => {
       
     } catch (error) {
       console.error('❌ Erreur chargement assignations:', error);
-      // Réinitialiser tous à non assignés en cas d'erreur
       setAssignments(voters.map(v => ({ ...v, assigned: false })));
     }
   };
@@ -116,7 +103,7 @@ const AssignmentPage = () => {
 
   const handleSave = async () => {
     if (!selectedElection) {
-      alert('Veuillez sélectionner une élection');
+      showError('Élection manquante', 'Veuillez sélectionner une élection');
       return;
     }
 
@@ -125,19 +112,17 @@ const AssignmentPage = () => {
         .filter(v => v.assigned)
         .map(v => v.id);
 
-      console.log('📤 Assignation:', {
-        election_id: selectedElection,
-        voter_ids: assignedVoterIds
-      });
-
       await electionsAPI.assignVoters(selectedElection, assignedVoterIds);
       
-      alert(`✅ ${assignedVoterIds.length} électeur(s) assigné(s) avec succès!`);
+      success(
+        'Assignations enregistrées!',
+        `${assignedVoterIds.length} électeur(s) assigné(s) avec succès.`
+      );
       navigate(`/admin/elections/${selectedElection}`);
       
     } catch (error) {
       console.error('❌ Erreur:', error);
-      alert('Erreur lors de l\'assignation');
+      showError('Erreur d\'assignation', 'Impossible d\'enregistrer les assignations');
     }
   };
 
@@ -160,9 +145,10 @@ const AssignmentPage = () => {
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center space-x-3">
-            <Button 
+           <Button 
               variant="ghost" 
               size="sm"
+              className="text-indigo-600 hover:text-indigo-800"
               onClick={() => navigate('/admin/dashboard')}
             >
               <ArrowLeft className="w-4 h-4 mr-2" />

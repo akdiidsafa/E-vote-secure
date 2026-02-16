@@ -1,8 +1,11 @@
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle } from 'lucide-react';
-import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
+import Card from '../../components/ui/Card';
+import Button from '../../components/ui/Button';
+
+// ... reste du code identique
 
 const ConfirmationPage = () => {
   const navigate = useNavigate();

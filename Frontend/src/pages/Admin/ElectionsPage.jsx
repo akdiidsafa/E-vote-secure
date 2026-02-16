@@ -5,9 +5,11 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { electionsAPI } from '../../services/api';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const ElectionsPage = () => {
   const navigate = useNavigate();
+  const { success, error: showError } = useNotification();
   const [elections, setElections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -21,17 +23,12 @@ const ElectionsPage = () => {
     try {
       setLoading(true);
       setError(null);
-      console.log('🔍 Récupération des élections...');
       
       const response = await electionsAPI.getAll();
-      console.log('✅ Réponse:', response.data);
-      
-      // Gérer les deux formats de réponse
       const electionsData = Array.isArray(response.data)
         ? response.data
         : response.data.results || [];
       
-      console.log('✅ Élections extraites:', electionsData);
       setElections(electionsData);
     } catch (err) {
       console.error('❌ Erreur:', err);
@@ -48,10 +45,10 @@ const ElectionsPage = () => {
 
     try {
       await electionsAPI.delete(id);
-      alert('Élection supprimée avec succès!');
-      fetchElections(); // Refresh list
+      success('Élection supprimée!', 'L\'élection a été supprimée avec succès.');
+      fetchElections();
     } catch (err) {
-      alert('Erreur lors de la suppression');
+      showError('Erreur de suppression', 'Impossible de supprimer l\'élection.');
     }
   };
 
@@ -89,7 +86,7 @@ const ElectionsPage = () => {
             <div>
               <button
                 onClick={() => navigate('/admin/dashboard')}
-                className="text-sm text-gray-600 hover:text-gray-900 mb-2"
+                className="text-sm text-blue-600 hover:text-blue-800 mb-2"
               >
                 ← Retour
               </button>
@@ -252,12 +249,12 @@ const ElectionsPage = () => {
         </Card>
 
         {/* Info Box */}
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        {/* <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-sm text-blue-800">
             💡 <strong>Astuce:</strong> Les élections créées ici sont stockées dans la base de données Django.
             Vous pouvez aussi les gérer depuis l'admin Django à http://localhost:8000/admin/
           </p>
-        </div>
+        </div> */}
       </div>
     </div>
   );

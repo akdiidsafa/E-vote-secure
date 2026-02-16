@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Vote, TrendingUp, Plus, UserPlus, UserCheck, Lock, LockOpen } from 'lucide-react';
+import { Users, Vote, TrendingUp, Plus, UserPlus, UserCheck, Lock, LockOpen, User, Clock, Bell } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { useNavigate } from 'react-router-dom';
-import { electionsAPI, usersAPI } from '../../services/api';
+import { electionsAPI, usersAPI, invitationsAPI } from '../../services/api';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const AdminDashboardPage = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { success, error: showError } = useNotification();
   
   const [stats, setStats] = useState({
     totalElections: 0,
@@ -23,10 +25,14 @@ const AdminDashboardPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showElectionSelector, setShowElectionSelector] = useState(false);
-  const [actionType, setActionType] = useState(null); // 'open' or 'close'
+  const [actionType, setActionType] = useState(null);
+  
+  // NOUVEAU: Validations en attente
+  const [pendingValidationsCount, setPendingValidationsCount] = useState(0);
 
   useEffect(() => {
     fetchDashboardData();
+    loadPendingValidations();
   }, []);
 
   const fetchDashboardData = async () => {
@@ -34,27 +40,18 @@ const AdminDashboardPage = () => {
       setLoading(true);
       setError(null);
       
-      // Fetch elections
       const electionsResponse = await electionsAPI.getAll();
-      console.log('Elections response:', electionsResponse.data);
-      
       const electionsData = Array.isArray(electionsResponse.data) 
         ? electionsResponse.data 
         : electionsResponse.data.results || [];
       
       setElections(electionsData);
       
-      // Fetch users
       const usersResponse = await usersAPI.getAll();
-      console.log('Users response:', usersResponse.data);
-      
       const users = Array.isArray(usersResponse.data)
         ? usersResponse.data
         : usersResponse.data.results || [];
       
-      console.log('Users array:', users);
-      
-      // Calculate stats
       const voters = users.filter(u => u.role === 'voter');
       const activeElections = electionsData.filter(e => e.status === 'open');
       const totalVotes = electionsData.reduce((sum, e) => sum + (e.total_votes || 0), 0);
@@ -77,75 +74,81 @@ const AdminDashboardPage = () => {
     }
   };
 
+  // NOUVEAU: Charger les validations en attente
+  const loadPendingValidations = async () => {
+    try {
+      const response = await invitationsAPI.getPending();
+      const data = Array.isArray(response.data) ? response.data : response.data.results || [];
+      setPendingValidationsCount(data.length);
+    } catch (err) {
+      console.error('❌ Erreur validations:', err);
+    }
+  };
+
   const handleLogout = async () => {
     await logout();
     navigate('/login');
   };
 
-  // Ouvrir le vote
   const handleOpenVote = () => {
     const draftElections = elections.filter(e => e.status === 'draft');
     
     if (draftElections.length === 0) {
-      alert('❌ Aucune élection en brouillon à ouvrir.\n\nCréez d\'abord une élection avec des candidats et des électeurs assignés.');
+      showError(
+        'Aucune élection disponible',
+        'Aucune élection en brouillon à ouvrir. Créez d\'abord une élection avec des candidats et des électeurs assignés.'
+      );
       return;
     }
 
     if (draftElections.length === 1) {
-      // Une seule élection en brouillon, ouvrir directement
       openElection(draftElections[0].id, draftElections[0].title);
     } else {
-      // Plusieurs élections, montrer le sélecteur
       setActionType('open');
       setShowElectionSelector(true);
     }
   };
 
-  // Fermer le vote
   const handleCloseVote = () => {
     const openElections = elections.filter(e => e.status === 'open');
     
     if (openElections.length === 0) {
-      alert('❌ Aucune élection ouverte à fermer.');
+      showError('Aucune élection ouverte', 'Aucune élection ouverte à fermer.');
       return;
     }
 
     if (openElections.length === 1) {
-      // Une seule élection ouverte, fermer directement
       closeElection(openElections[0].id, openElections[0].title);
     } else {
-      // Plusieurs élections ouvertes, montrer le sélecteur
       setActionType('close');
       setShowElectionSelector(true);
     }
   };
 
-  // Ouvrir une élection
   const openElection = async (id, title) => {
     if (window.confirm(`Voulez-vous ouvrir l'élection "${title}" ?`)) {
       try {
         await electionsAPI.open(id);
-        alert('✅ Vote ouvert avec succès!');
-        fetchDashboardData(); // Recharger
+        success('Vote ouvert!', `L'élection "${title}" est maintenant ouverte au vote.`);
+        fetchDashboardData();
       } catch (error) {
         console.error('❌ Erreur:', error);
         const errorMsg = error.response?.data?.error || 'Erreur lors de l\'ouverture du vote';
-        alert('❌ ' + errorMsg);
+        showError('Erreur d\'ouverture', errorMsg);
       }
     }
     setShowElectionSelector(false);
   };
 
-  // Fermer une élection
   const closeElection = async (id, title) => {
     if (window.confirm(`⚠️ Voulez-vous vraiment fermer l'élection "${title}" ?\n\nAprès fermeture, aucun vote ne pourra plus être soumis.`)) {
       try {
         await electionsAPI.close(id);
-        alert('✅ Vote fermé avec succès!');
-        fetchDashboardData(); // Recharger
+        success('Vote fermé!', `L'élection "${title}" a été fermée avec succès.`);
+        fetchDashboardData();
       } catch (error) {
         console.error('❌ Erreur:', error);
-        alert('Erreur lors de la fermeture du vote');
+        showError('Erreur de fermeture', 'Impossible de fermer l\'élection.');
       }
     }
     setShowElectionSelector(false);
@@ -210,9 +213,35 @@ const AdminDashboardPage = () => {
                 <Badge variant="warning" className="mt-1">Administrateur</Badge>
               </div>
             </div>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              Déconnexion
-            </Button>
+            <div className="flex items-center space-x-3">
+              {/* NOUVEAU: Badge de notifications */}
+              {pendingValidationsCount > 0 && (
+                <Button 
+                  variant="warning" 
+                  size="sm"
+                  onClick={() => navigate('/admin/pending-validations')}
+                  className="relative"
+                >
+                  <Bell className="w-4 h-4 mr-2" />
+                  Validations
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                    {pendingValidationsCount}
+                  </span>
+                </Button>
+              )}
+              
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => navigate('/admin/profile')}
+              >
+                <User className="w-4 h-4 mr-2" />
+                Profil
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleLogout}>
+                Déconnexion
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -241,9 +270,15 @@ const AdminDashboardPage = () => {
             </button>
             <button 
               onClick={() => navigate('/admin/voters')}
-              className="py-4 px-2 border-b-2 border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-800"
+              className="py-4 px-2 border-b-2 border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-800 relative"
             >
               Électeurs
+              {/* NOUVEAU: Badge sur l'onglet */}
+              {pendingValidationsCount > 0 && (
+                <span className="absolute top-2 right-0 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                  {pendingValidationsCount}
+                </span>
+              )}
             </button>
             <button 
               onClick={() => navigate('/admin/assignment')}
@@ -272,6 +307,31 @@ const AdminDashboardPage = () => {
             day: 'numeric'
           })} - {new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
         </p>
+
+        {/* NOUVEAU: Alerte validations en attente */}
+        {pendingValidationsCount > 0 && (
+          <Card className="mb-8 bg-yellow-50 border-yellow-200">
+            <div className="flex items-start space-x-3">
+              <Bell className="w-6 h-6 text-yellow-600 flex-shrink-0 mt-1" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-yellow-900 mb-1">
+                  {pendingValidationsCount} demande(s) de validation en attente
+                </h3>
+                <p className="text-sm text-yellow-800 mb-3">
+                  Des électeurs ont soumis leur formulaire d'inscription et attendent votre approbation.
+                </p>
+                <Button
+                  variant="warning"
+                  size="sm"
+                  onClick={() => navigate('/admin/pending-validations')}
+                >
+                  <Clock className="w-4 h-4 mr-2" />
+                  Voir les demandes
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -356,7 +416,7 @@ const AdminDashboardPage = () => {
               <UserCheck className="w-5 h-5 mr-2" />
               Assigner aux Élections
             </Button>
-            
+                       
             <Button 
               variant="success"
               className="w-full justify-center"

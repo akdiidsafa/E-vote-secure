@@ -1,3 +1,4 @@
+
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -5,6 +6,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 import hashlib
 import secrets
+import json
 
 from .models import Vote, DecryptedBallot, VoteReceipt
 from .serializers import (
@@ -18,7 +20,6 @@ from .serializers import (
 from elections.models import Election, ElectionVoterAssignment
 from candidates.models import Candidate
 from django.db.models import Count
-from votes.models import DecryptedBallot
 
 
 class SubmitVoteView(APIView):
@@ -130,179 +131,6 @@ class MyVoteStatusView(APIView):
         })
 
 
-class COPendingVotesView(generics.ListAPIView):
-    """
-    GET /api/votes/co/pending/ - Get all votes pending CO verification
-    """
-    serializer_class = VoteSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get_queryset(self):
-        # Only CO can access this
-        if self.request.user.role != 'co':
-            return Vote.objects.none()
-        
-        return Vote.objects.filter(status='pending_co')
-
-
-class COVerifyVoteView(APIView):
-    """
-    POST /api/votes/co/verify/ - Verify identity and approve/reject vote
-    """
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def post(self, request):
-        # Only CO can verify
-        if request.user.role != 'co':
-            return Response({
-                'error': 'Seul le CO peut vérifier les votes.'
-            }, status=status.HTTP_403_FORBIDDEN)
-        
-        serializer = COVoteVerificationSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        vote_id = serializer.validated_data['vote_id']
-        action = serializer.validated_data['action']
-        notes = serializer.validated_data.get('notes', '')
-        
-        vote = get_object_or_404(Vote, pk=vote_id)
-        
-        if vote.status != 'pending_co':
-            return Response({
-                'error': 'Ce vote a déjà été vérifié.'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Update vote status
-        vote.verified_by_co = request.user
-        vote.co_verification_date = timezone.now()
-        vote.co_notes = notes
-        
-        if action == 'approve':
-            vote.status = 'approved_co'
-            # In production, M2 would be forwarded to DE here
-            # TODO: Forward M2 to DE queue
-        else:
-            vote.status = 'rejected_co'
-            # Notify voter/admin of rejection
-            # TODO: Send notification
-        
-        vote.save()
-        
-        return Response({
-            'message': f'Vote {"approuvé" if action == "approve" else "rejeté"} avec succès.',
-            'vote': VoteSerializer(vote).data
-        }, status=status.HTTP_200_OK)
-
-
-class DEPendingBallotsView(generics.ListAPIView):
-    """
-    GET /api/votes/de/pending/?election_id=<id> - Get approved votes for counting
-    """
-    serializer_class = VoteSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get_queryset(self):
-        # Only DE can access this
-        if self.request.user.role != 'de':
-            return Vote.objects.none()
-        
-        queryset = Vote.objects.filter(status='approved_co')
-        
-        election_id = self.request.query_params.get('election_id')
-        if election_id:
-            queryset = queryset.filter(election_id=election_id)
-        
-        return queryset
-
-
-class DEDecryptBallotView(APIView):
-    """
-    POST /api/votes/de/decrypt/ - Decrypt ballot and record vote
-    """
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def post(self, request):
-        # Only DE can decrypt
-        if request.user.role != 'de':
-            return Response({
-                'error': 'Seul le DE peut déchiffrer les bulletins.'
-            }, status=status.HTTP_403_FORBIDDEN)
-        
-        serializer = DEBallotDecryptSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        unique_id = serializer.validated_data['unique_id']
-        candidate_id = serializer.validated_data['candidate_id']
-        
-        # Get the vote
-        vote = get_object_or_404(Vote, unique_id=unique_id)
-        
-        if vote.status != 'approved_co':
-            return Response({
-                'error': 'Ce vote n\'a pas été approuvé par le CO.'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Get candidate
-        candidate = get_object_or_404(Candidate, pk=candidate_id)
-        
-        # Check if already decrypted
-        if DecryptedBallot.objects.filter(unique_id=unique_id).exists():
-            return Response({
-                'error': 'Ce bulletin a déjà été déchiffré.'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Create decrypted ballot (anonymous vote)
-        decrypted_ballot = DecryptedBallot.objects.create(
-            election=vote.election,
-            candidate=candidate,
-            unique_id=unique_id,
-            decrypted_by=request.user
-        )
-        
-        # Update vote status
-        vote.status = 'counted'
-        vote.save()
-        
-        return Response({
-            'message': 'Bulletin déchiffré et compté avec succès.',
-            'ballot': DecryptedBallotSerializer(decrypted_ballot).data
-        }, status=status.HTTP_201_CREATED)
-
-
-class VoteReceiptView(APIView):
-    """
-    GET /api/votes/receipt/?code=<receipt_code> - Verify vote receipt
-    """
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get(self, request):
-        receipt_code = request.query_params.get('code')
-        
-        if not receipt_code:
-            return Response({
-                'error': 'Code de reçu requis.'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        receipt = VoteReceipt.objects.filter(receipt_code=receipt_code).first()
-        
-        if not receipt:
-            return Response({
-                'valid': False,
-                'message': 'Reçu invalide.'
-            })
-        
-        # Only the voter who cast the vote can verify their receipt
-        if receipt.vote.voter != request.user and request.user.role != 'admin':
-            return Response({
-                'error': 'Vous ne pouvez pas vérifier ce reçu.'
-            }, status=status.HTTP_403_FORBIDDEN)
-        
-        return Response({
-            'valid': True,
-            'election': receipt.vote.election.title,
-            'submitted_at': receipt.vote.submitted_at,
-            'status': receipt.vote.status
-        })
 class COPendingVotesView(APIView):
     """
     GET /api/votes/co/pending/ - Récupérer les votes en attente de validation CO
@@ -336,9 +164,12 @@ class COPendingVotesView(APIView):
             })
         
         return Response(data, status=status.HTTP_200_OK)
+
+
 class COVerifyVoteView(APIView):
     """
     POST /api/votes/co/verify/ - Valider ou rejeter un vote
+    ✅ MODIFIÉ: Extrait et stocke le linking_id de M1
     """
     permission_classes = [permissions.IsAuthenticated]
     
@@ -351,7 +182,6 @@ class COVerifyVoteView(APIView):
         
         vote_id = request.data.get('vote_id')
         action = request.data.get('action')  # 'approve' ou 'reject'
-        notes = request.data.get('notes', '')
         
         if not vote_id or not action:
             return Response({
@@ -372,13 +202,35 @@ class COVerifyVoteView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
         
         if action == 'approve':
-            # Approuver → Passer au DE
-            vote.status = 'pending_de'
-            vote.co_verified_at = timezone.now()
-            vote.co_verified_by = request.user
-            vote.save()
+            # ✅ NOUVEAU: Déchiffrer M1 pour extraire le linking_id
+            from votes.crypto_utils import decrypt_message
             
-            message = 'Vote approuvé et transféré au DE'
+            try:
+                election = vote.election
+                decrypted_m1 = decrypt_message(vote.m1_identity, election.co_private_key)
+                identity_data = json.loads(decrypted_m1)
+                
+                # Extraire et stocker le linking_id
+                linking_id = identity_data.get('linking_id')
+                
+                if not linking_id:
+                    return Response({
+                        'error': 'linking_id manquant dans M1'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                
+                # Stocker le linking_id dans le vote
+                vote.linking_id = linking_id
+                vote.status = 'pending_de'
+                vote.co_verified_at = timezone.now()
+                vote.co_verified_by = request.user
+                vote.save()
+                
+                message = 'Vote approuvé et transféré au DE'
+                
+            except Exception as e:
+                return Response({
+                    'error': f'Erreur lors du déchiffrement: {str(e)}'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
             # Rejeter
             vote.status = 'rejected_co'
@@ -393,6 +245,8 @@ class COVerifyVoteView(APIView):
             'vote_id': vote.id,
             'new_status': vote.status
         }, status=status.HTTP_200_OK)
+
+
 class DEPendingBallotsView(APIView):
     """
     GET /api/votes/de/pending/ - Récupérer les bulletins approuvés par le CO
@@ -436,6 +290,7 @@ class DEPendingBallotsView(APIView):
 class DEDecryptBallotView(APIView):
     """
     POST /api/votes/de/decrypt/ - Déchiffrer et comptabiliser un bulletin
+    ✅ MODIFIÉ: Vérifie que linking_id de M2 correspond à celui du CO
     """
     permission_classes = [permissions.IsAuthenticated]
     
@@ -461,17 +316,106 @@ class DEDecryptBallotView(APIView):
                 'error': 'Ce vote n\'est pas en attente de déchiffrement DE'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # Marquer comme déchiffré
-        vote.status = 'counted'
-        vote.de_verified_at = timezone.now()
-        vote.de_verified_by = request.user
-        vote.save()
+        # ✅ NOUVEAU: Déchiffrer M2 et vérifier le linking_id
+        from votes.crypto_utils import decrypt_message
+        
+        try:
+            election = vote.election
+            decrypted_m2 = decrypt_message(vote.m2_ballot, election.de_private_key)
+            ballot_data = json.loads(decrypted_m2)
+            
+            # Vérifier la cohérence avec linking_id
+            linking_id_from_m2 = ballot_data.get('linking_id')
+            linking_id_from_co = vote.linking_id
+            
+            if not linking_id_from_m2:
+                return Response({
+                    'error': 'linking_id manquant dans M2'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            if linking_id_from_m2 != linking_id_from_co:
+                # Incohérence détectée!
+                vote.status = 'rejected_de'
+                vote.de_verified_at = timezone.now()
+                vote.de_verified_by = request.user
+                vote.save()
+                
+                return Response({
+                    'error': 'Incohérence détectée: linking_id ne correspond pas'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Tout est OK, créer le bulletin déchiffré
+            candidate_id = ballot_data.get('candidate_id')
+            
+            if not candidate_id:
+                return Response({
+                    'error': 'candidate_id manquant dans M2'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Vérifier que le candidat existe
+            candidate = get_object_or_404(Candidate, pk=candidate_id)
+            
+            # Créer le bulletin déchiffré (SANS linking_id pour anonymat)
+            DecryptedBallot.objects.create(
+                election=election,
+                candidate=candidate,
+                unique_id=vote.unique_id,
+                decrypted_by=request.user
+            )
+            
+            # Marquer le vote comme compté
+            vote.status = 'counted'
+            vote.de_verified_at = timezone.now()
+            vote.de_verified_by = request.user
+            vote.save()
+            
+            return Response({
+                'message': 'Bulletin déchiffré et comptabilisé avec succès',
+                'vote_id': vote.id,
+                'candidate_id': candidate_id,
+                'new_status': vote.status
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({
+                'error': f'Erreur lors du déchiffrement: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class VoteReceiptView(APIView):
+    """
+    GET /api/votes/receipt/?code=<receipt_code> - Verify vote receipt
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        receipt_code = request.query_params.get('code')
+        
+        if not receipt_code:
+            return Response({
+                'error': 'Code de reçu requis.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        receipt = VoteReceipt.objects.filter(receipt_code=receipt_code).first()
+        
+        if not receipt:
+            return Response({
+                'valid': False,
+                'message': 'Reçu invalide.'
+            })
+        
+        # Only the voter who cast the vote can verify their receipt
+        if receipt.vote.voter != request.user and request.user.role != 'admin':
+            return Response({
+                'error': 'Vous ne pouvez pas vérifier ce reçu.'
+            }, status=status.HTTP_403_FORBIDDEN)
         
         return Response({
-            'message': 'Bulletin déchiffré et comptabilisé',
-            'vote_id': vote.id,
-            'new_status': vote.status
-        }, status=status.HTTP_200_OK)
+            'valid': True,
+            'election': receipt.vote.election.title,
+            'submitted_at': receipt.vote.submitted_at,
+            'status': receipt.vote.status
+        })
 
 
 class DEElectionResultsView(APIView):
@@ -496,7 +440,6 @@ class DEElectionResultsView(APIView):
         ).count()
         
         # Récupérer les bulletins déchiffrés
-        from votes.models import DecryptedBallot
         decrypted_ballots = DecryptedBallot.objects.filter(
             election=election
         ).values('candidate_id').annotate(
@@ -506,7 +449,6 @@ class DEElectionResultsView(APIView):
         # Formater les résultats
         results = []
         for ballot in decrypted_ballots:
-            from candidates.models import Candidate
             try:
                 candidate = Candidate.objects.get(pk=ballot['candidate_id'])
                 results.append({

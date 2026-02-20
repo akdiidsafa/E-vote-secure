@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Vote as VoteIcon, CheckCircle, Shield, User } from 'lucide-react';
@@ -11,7 +12,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { encryptMessage } from '../../utils/crypto';
 
 const VotePage = () => {
-  const { id } = useParams(); // ← IMPORTANT: "id" pas "electionId"
+  const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { success, error: showError } = useNotification();
@@ -31,25 +32,21 @@ const VotePage = () => {
     try {
       setLoading(true);
       
-      // Charger l'élection
       const electionResponse = await electionsAPI.getById(id);
       setElection(electionResponse.data);
 
-      // Vérifier si l'élection est ouverte
       if (electionResponse.data.status !== 'open') {
         showError('Élection fermée', 'Cette élection n\'est pas ouverte au vote.');
         navigate('/voter/dashboard');
         return;
       }
 
-      // Vérifier si déjà voté
       if (electionResponse.data.has_voted) {
         showError('Déjà voté', 'Vous avez déjà voté pour cette élection.');
         navigate('/voter/dashboard');
         return;
       }
 
-      // Charger les candidats
       const candidatesResponse = await candidatesAPI.getByElection(id);
       const candidatesData = Array.isArray(candidatesResponse.data)
         ? candidatesResponse.data
@@ -58,12 +55,8 @@ const VotePage = () => {
       setCandidates(candidatesData);
     } catch (err) {
       console.error('❌ Erreur:', err);
-      console.error('❌ Réponse serveur:', err.response?.data); 
-      const errorMsg = err.response?.data?.detail  || err.response?.data?.error || 'Une erreur est survenue';
-  
+      const errorMsg = err.response?.data?.detail || err.response?.data?.error || 'Une erreur est survenue';
       showError('Erreur de vote', errorMsg);
-      setShowConfirmation(false);
-
       navigate('/voter/dashboard');
     } finally {
       setLoading(false);
@@ -82,120 +75,116 @@ const VotePage = () => {
     setShowConfirmation(true);
   };
 
- const handleConfirmVote = async () => {
-  if (!selectedCandidate) return;
+  const handleConfirmVote = async () => {
+    if (!selectedCandidate) return;
 
-  try {
-    setSubmitting(true);
+    try {
+      setSubmitting(true);
 
-    console.log('🔐 === DÉBUT DU CHIFFREMENT ===');
+      console.log('🔐 === DÉBUT DU CHIFFREMENT PGP ===');
 
-    // 1. Récupérer les clés publiques
-    console.log('📡 Récupération des clés publiques...');
-    const keysResponse = await electionsAPI.getPublicKeys(id);
-    const { co_public_key, de_public_key } = keysResponse.data;
+      // 1. Récupérer les clés publiques
+      console.log('📡 Récupération des clés publiques PGP...');
+      const keysResponse = await electionsAPI.getPublicKeys(id);
+      const { co_public_key, de_public_key } = keysResponse.data;
 
-    console.log('✅ Clés publiques récupérées');
-    console.log('🔑 CO Public Key:', co_public_key ? 'Présente' : 'MANQUANTE');
-    console.log('🔑 DE Public Key:', de_public_key ? 'Présente' : 'MANQUANTE');
+      console.log('✅ Clés publiques PGP récupérées');
 
-    if (!co_public_key || !de_public_key) {
-      throw new Error('Les clés publiques de chiffrement sont manquantes');
+      if (!co_public_key || !de_public_key) {
+        throw new Error('Les clés publiques de chiffrement sont manquantes');
+      }
+
+      // 2. Générer un linking_id (hash SHA-256 d'un secret aléatoire)
+      const secret = crypto.randomUUID();
+      const secretBuffer = new TextEncoder().encode(secret);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', secretBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const linking_id = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      
+      console.log('🔗 Linking ID généré:', linking_id.substring(0, 16) + '...');
+
+      // 3. Créer M1 (Identité) avec linking_id
+      const m1_data = {
+        voter_id: user.id,
+        voter_name: user.first_name && user.last_name 
+          ? `${user.first_name} ${user.last_name}` 
+          : user.username,
+        voter_email: user.email,
+        linking_id: linking_id,  // ← AJOUTÉ
+        timestamp: new Date().toISOString(),
+      };
+
+      // 4. Créer M2 (Vote) avec linking_id
+      const m2_data = {
+        candidate_id: selectedCandidate.id,
+        candidate_name: selectedCandidate.name,
+        linking_id: linking_id,  // ← AJOUTÉ (le même!)
+        timestamp: new Date().toISOString(),
+      };
+
+      console.log('📝 Messages créés avec linking_id');
+
+      // 5. Chiffrer M1 avec clé publique CO
+      console.log('🔒 Chiffrement PGP de M1 (Identité)...');
+      const m1_identity = await encryptMessage(JSON.stringify(m1_data), co_public_key);
+      
+      if (!m1_identity) {
+        throw new Error('Échec du chiffrement de l\'identité (M1)');
+      }
+      console.log('✅ M1 chiffré avec PGP');
+
+      // 6. Chiffrer M2 avec clé publique DE
+      console.log('🔒 Chiffrement PGP de M2 (Bulletin)...');
+      const m2_ballot = await encryptMessage(JSON.stringify(m2_data), de_public_key);
+
+      if (!m2_ballot) {
+        throw new Error('Échec du chiffrement du bulletin (M2)');
+      }
+      console.log('✅ M2 chiffré avec PGP');
+
+      // 7. Générer un ID unique pour le transfert
+      const unique_id = crypto.randomUUID();
+      console.log('🆔 ID unique généré:', unique_id);
+
+      // 8. Envoyer les messages chiffrés au backend
+      const voteData = {
+        election_id: parseInt(id),
+        m1_identity,
+        m2_ballot,
+        unique_id,
+      };
+
+      console.log('📤 Envoi du vote crypté PGP au serveur...');
+
+      const response = await votesAPI.submit(voteData);
+
+      console.log('✅ Vote enregistré avec succès!');
+      console.log('🔐 === FIN DU CHIFFREMENT PGP ===');
+
+      success(
+        'Vote enregistré!',
+        'Votre vote a été chiffré avec PGP et enregistré avec succès.'
+      );
+
+      setTimeout(() => {
+        navigate('/voter/confirmation');
+      }, 1000);
+
+    } catch (err) {
+      console.error('❌ === ERREUR DE VOTE ===');
+      console.error('❌ Erreur complète:', err);
+      
+      const errorMsg = err.response?.data?.detail 
+        || err.response?.data?.error
+        || err.message
+        || 'Une erreur est survenue lors de l\'enregistrement de votre vote';
+      
+      showError('Erreur de vote', errorMsg);
+      setShowConfirmation(false);
+    } finally {
+      setSubmitting(false);
     }
-
-    // 2. Créer M1 (Identité) - Format JSON
-    const m1_data = {
-      voter_id: user.id,
-      voter_name: user.first_name && user.last_name 
-        ? `${user.first_name} ${user.last_name}` 
-        : user.username,
-      voter_email: user.email,
-      timestamp: new Date().toISOString(),
-    };
-
-    // 3. Créer M2 (Vote) - Format JSON
-    const m2_data = {
-      candidate_id: selectedCandidate.id,
-      candidate_name: selectedCandidate.name,
-      timestamp: new Date().toISOString(),
-    };
-
-    console.log('📝 Messages créés:');
-    console.log('   M1 (Identité):', m1_data);
-    console.log('   M2 (Bulletin):', m2_data);
-
-    // 4. Chiffrer M1 avec clé publique CO
-    console.log('🔒 Chiffrement de M1 (Identité)...');
-    const m1_identity = encryptMessage(JSON.stringify(m1_data), co_public_key);
-    
-    if (!m1_identity) {
-      throw new Error('Échec du chiffrement de l\'identité (M1)');
-    }
-    console.log('✅ M1 chiffré avec succès');
-
-    // 5. Chiffrer M2 avec clé publique DE
-    console.log('🔒 Chiffrement de M2 (Bulletin)...');
-    const m2_ballot = encryptMessage(JSON.stringify(m2_data), de_public_key);
-
-    if (!m2_ballot) {
-      throw new Error('Échec du chiffrement du bulletin (M2)');
-    }
-    console.log('✅ M2 chiffré avec succès');
-
-    // 6. Générer un ID unique pour lier M1 et M2
-    const unique_id = crypto.randomUUID();
-    console.log('🆔 ID unique généré:', unique_id);
-
-    // 7. Envoyer les messages chiffrés au backend
-    const voteData = {
-      election_id: parseInt(id),
-      m1_identity,
-      m2_ballot,
-      unique_id,
-    };
-
-    console.log('📤 Envoi du vote crypté au serveur...');
-    console.log('📦 Données:', {
-      election_id: voteData.election_id,
-      unique_id: voteData.unique_id,
-      m1_length: m1_identity.length,
-      m2_length: m2_ballot.length,
-    });
-
-    const response = await votesAPI.submit(voteData);
-
-    console.log('✅ Vote enregistré avec succès!');
-    console.log('📨 Réponse serveur:', response.data);
-    console.log('🔐 === FIN DU CHIFFREMENT ===');
-
-    success(
-      'Vote enregistré!',
-      'Votre vote a été chiffré et enregistré avec succès.'
-    );
-
-    // Attendre 1 seconde avant de rediriger
-    setTimeout(() => {
-      navigate('/voter/confirmation');
-    }, 1000);
-
-  } catch (err) {
-    console.error('❌ === ERREUR DE VOTE ===');
-    console.error('❌ Erreur complète:', err);
-    console.error('❌ Message:', err.message);
-    console.error('❌ Réponse serveur:', err.response?.data);
-    console.error('❌ Status:', err.response?.status);
-    
-    const errorMsg = err.response?.data?.detail 
-      || err.response?.data?.error
-      || err.message
-      || 'Une erreur est survenue lors de l\'enregistrement de votre vote';
-    
-    showError('Erreur de vote', errorMsg);
-    setShowConfirmation(false);
-  } finally {
-    setSubmitting(false);
-  }
-};
+  };
 
   if (loading) {
     return (
@@ -221,7 +210,6 @@ const VotePage = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
-        {/* Back Button */}
         <Button 
           variant="ghost" 
           onClick={() => navigate('/voter/dashboard')}
@@ -329,7 +317,6 @@ const VotePage = () => {
           )}
         </Card>
 
-        {/* Confirmation Modal */}
         {showConfirmation && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <Card className="max-w-md w-full mx-4">

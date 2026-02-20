@@ -273,3 +273,36 @@ class ElectionPublicKeysView(APIView):
             'co_public_key': election.co_public_key,
             'de_public_key': election.de_public_key,
         })
+
+
+class ElectionPrivateKeysView(APIView):
+    """
+    GET /api/elections/<id>/private_keys/ - Retourne les clés privées CO et DE
+    ATTENTION: Accès TRÈS restreint - seulement pour CO et DE
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request, pk):
+        election = get_object_or_404(Election, pk=pk)
+        
+        response_data = {}
+        
+        # CO peut récupérer sa clé privée
+        if request.user.role == 'co':
+            response_data['co_private_key'] = election.co_private_key
+        
+        # DE peut récupérer sa clé privée
+        elif request.user.role == 'de':
+            response_data['de_private_key'] = election.de_private_key
+        
+        # Admin peut tout voir (pour debug uniquement)
+        elif request.user.role == 'admin':
+            response_data['co_private_key'] = election.co_private_key
+            response_data['de_private_key'] = election.de_private_key
+        
+        else:
+            return Response({
+                'error': 'Accès non autorisé'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        return Response(response_data)

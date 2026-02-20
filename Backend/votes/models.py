@@ -15,9 +15,9 @@ class Vote(models.Model):
     """
     STATUS_CHOICES = (
         ('pending_co', 'En attente CO'),
-        ('approved_co', 'Approuvé par CO'),
-        ('rejected_co', 'Rejeté par CO'),
         ('pending_de', 'En attente DE'),
+        ('rejected_co', 'Rejeté par CO'),
+        ('rejected_de', 'Rejeté par DE'),
         ('counted', 'Compté'),
     )
     
@@ -53,6 +53,15 @@ class Vote(models.Model):
         verbose_name="ID Unique"
     )
     
+    # ✅ NOUVEAU: Hash de liaison pour vérifier l'intégrité
+    linking_id = models.CharField(
+        max_length=64,
+        blank=True,
+        null=True,
+        verbose_name="Linking ID",
+        help_text="Hash SHA-256 pour lier M1 et M2 sans révéler l'identité"
+    )
+    
     # Status and timestamps
     status = models.CharField(
         max_length=20,
@@ -66,47 +75,9 @@ class Vote(models.Model):
     )
     
     # CO verification
-    verified_by_co = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='verified_votes',
-        limit_choices_to={'role': 'co'},
-        verbose_name="Vérifié par CO"
-    )
-    co_verification_date = models.DateTimeField(
-        null=True,
-        blank=True,
-        verbose_name="Date de vérification CO"
-    )
-    co_notes = models.TextField(
-        blank=True,
-        verbose_name="Notes CO"
-    )
-    
-    # Decrypted data (only after CO approval)
-    # IMPORTANT: This is stored ONLY after identity verification
-    # The actual vote choice is NEVER stored here
-    decrypted_identity = models.JSONField(
-        null=True,
-        blank=True,
-        verbose_name="Identité déchiffrée",
-        help_text="Only contains voter info, NOT vote choice"
-    )
-    
-    class Meta:
-        ordering = ['-submitted_at']
-        verbose_name = 'Vote'
-        verbose_name_plural = 'Votes'
-        unique_together = ['election', 'voter']
-    
-    def __str__(self):
-        return f"Vote {self.unique_id} - {self.election.title}"
-     # CO verification
     co_verified_at = models.DateTimeField(null=True, blank=True)
     co_verified_by = models.ForeignKey(
-        'authentication.User',
+        User,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -116,12 +87,20 @@ class Vote(models.Model):
     # DE verification
     de_verified_at = models.DateTimeField(null=True, blank=True)
     de_verified_by = models.ForeignKey(
-        'authentication.User',
+        User,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name='de_verified_votes'
     )
+    
+    class Meta:
+        ordering = ['-submitted_at']
+        verbose_name = 'Vote'
+        verbose_name_plural = 'Votes'
+    
+    def __str__(self):
+        return f"Vote {self.unique_id} - {self.election.title}"
 
 
 class DecryptedBallot(models.Model):

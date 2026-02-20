@@ -55,6 +55,12 @@ class Election(models.Model):
         verbose_name="Élection publique"
     )
     
+    # Clés de chiffrement PGP
+    co_public_key = models.TextField(blank=True, null=True, help_text="Clé publique CO (PGP)")
+    co_private_key = models.TextField(blank=True, null=True, help_text="Clé privée CO (PGP)")
+    de_public_key = models.TextField(blank=True, null=True, help_text="Clé publique DE (PGP)")
+    de_private_key = models.TextField(blank=True, null=True, help_text="Clé privée DE (PGP)")
+    
     class Meta:
         ordering = ['-created_at']
         verbose_name = 'Élection'
@@ -69,6 +75,31 @@ class Election(models.Model):
             raise ValidationError({
                 'end_date': 'La date de fin doit être après la date de début.'
             })
+    
+    def generate_encryption_keys(self):
+        """Génère les paires de clés PGP pour CO et DE"""
+        from votes.crypto_utils import generate_keypair
+        
+        # Générer clés CO
+        print(f"🔑 Génération des clés PGP pour CO (Election {self.id})...")
+        co_keys = generate_keypair(
+            name=f"CO Election {self.id}",
+            email=f"co-election-{self.id}@evote.local"
+        )
+        self.co_public_key = co_keys['public_key']
+        self.co_private_key = co_keys['private_key']
+        
+        # Générer clés DE
+        print(f"🔑 Génération des clés PGP pour DE (Election {self.id})...")
+        de_keys = generate_keypair(
+            name=f"DE Election {self.id}",
+            email=f"de-election-{self.id}@evote.local"
+        )
+        self.de_public_key = de_keys['public_key']
+        self.de_private_key = de_keys['private_key']
+        
+        self.save()
+        print(f"✅ Clés PGP générées avec succès!")
     
     @property
     def is_active(self):
@@ -101,27 +132,6 @@ class Election(models.Model):
         if self.total_voters == 0:
             return 0.0
         return round((self.total_votes / self.total_voters) * 100, 2)
-      # Clés de chiffrement
-    co_public_key = models.TextField(blank=True, null=True, help_text="Clé publique CO (RSA)")
-    co_private_key = models.TextField(blank=True, null=True, help_text="Clé privée CO (RSA)")
-    de_public_key = models.TextField(blank=True, null=True, help_text="Clé publique DE (RSA)")
-    de_private_key = models.TextField(blank=True, null=True, help_text="Clé privée DE (RSA)")
-    
-    def generate_encryption_keys(self):
-        """Génère les paires de clés pour CO et DE"""
-        from votes.crypto_utils import generate_keypair
-        
-        # Générer clés CO
-        co_pub, co_priv = generate_keypair()
-        self.co_public_key = co_pub
-        self.co_private_key = co_priv
-        
-        # Générer clés DE
-        de_pub, de_priv = generate_keypair()
-        self.de_public_key = de_pub
-        self.de_private_key = de_priv
-        
-        self.save()
 
 
 class ElectionVoterAssignment(models.Model):

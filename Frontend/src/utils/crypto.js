@@ -1,29 +1,30 @@
-
-
-import JSEncrypt from 'jsencrypt';
+import * as openpgp from 'openpgp';
 
 /**
- * Chiffre un message avec une clé publique RSA
+ * Chiffre un message avec une clé publique PGP
  * @param {string} message - Le message à chiffrer (JSON stringifié)
- * @param {string} publicKey - La clé publique RSA au format PEM
- * @returns {string|false} - Le message chiffré en base64 ou false si erreur
+ * @param {string} publicKeyArmored - La clé publique PGP au format ASCII
+ * @returns {Promise<string|false>} - Le message chiffré ou false si erreur
  */
-export const encryptMessage = (message, publicKey) => {
+export const encryptMessage = async (message, publicKeyArmored) => {
   try {
-    if (!message || !publicKey) {
+    if (!message || !publicKeyArmored) {
       console.error('❌ Message ou clé publique manquant');
       return false;
     }
 
-    const encrypt = new JSEncrypt();
-    encrypt.setPublicKey(publicKey);
-    const encrypted = encrypt.encrypt(message);
-    
-    if (!encrypted) {
-      console.error('❌ Échec du chiffrement');
-      return false;
-    }
-    
+    // Lire la clé publique
+    const publicKey = await openpgp.readKey({ armoredKey: publicKeyArmored });
+
+    // Créer le message
+    const messageObj = await openpgp.createMessage({ text: message });
+
+    // Chiffrer
+    const encrypted = await openpgp.encrypt({
+      message: messageObj,
+      encryptionKeys: publicKey,
+    });
+
     return encrypted;
   } catch (error) {
     console.error('❌ Erreur de chiffrement:', error);
@@ -32,27 +33,34 @@ export const encryptMessage = (message, publicKey) => {
 };
 
 /**
- * Déchiffre un message avec une clé privée RSA
- * @param {string} encryptedMessage - Le message chiffré en base64
- * @param {string} privateKey - La clé privée RSA au format PEM
- * @returns {string|false} - Le message déchiffré ou false si erreur
+ * Déchiffre un message avec une clé privée PGP
+ * @param {string} encryptedMessage - Le message chiffré
+ * @param {string} privateKeyArmored - La clé privée PGP au format ASCII
+ * @returns {Promise<string|false>} - Le message déchiffré ou false si erreur
  */
-export const decryptMessage = (encryptedMessage, privateKey) => {
+export const decryptMessage = async (encryptedMessage, privateKeyArmored) => {
   try {
-    if (!encryptedMessage || !privateKey) {
+    if (!encryptedMessage || !privateKeyArmored) {
       console.error('❌ Message chiffré ou clé privée manquant');
       return false;
     }
 
-    const decrypt = new JSEncrypt();
-    decrypt.setPrivateKey(privateKey);
-    const decrypted = decrypt.decrypt(encryptedMessage);
-    
-    if (!decrypted) {
-      console.error('❌ Échec du déchiffrement');
-      return false;
-    }
-    
+    // Lire la clé privée (sans passphrase)
+    const privateKey = await openpgp.readPrivateKey({ 
+      armoredKey: privateKeyArmored 
+    });
+
+    // Lire le message chiffré
+    const message = await openpgp.readMessage({
+      armoredMessage: encryptedMessage,
+    });
+
+    // Déchiffrer
+    const { data: decrypted } = await openpgp.decrypt({
+      message,
+      decryptionKeys: privateKey,
+    });
+
     return decrypted;
   } catch (error) {
     console.error('❌ Erreur de déchiffrement:', error);
@@ -65,12 +73,10 @@ export const decryptMessage = (encryptedMessage, privateKey) => {
  * @returns {string} - UUID au format standard
  */
 export const generateUUID = () => {
-  // Vérifier si crypto.randomUUID est disponible
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
   }
   
-  // Fallback pour les anciens navigateurs
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0;
     const v = c === 'x' ? r : (r & 0x3 | 0x8);

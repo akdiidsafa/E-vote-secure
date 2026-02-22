@@ -1,7 +1,9 @@
 from django.urls import path
 from .views import (
     SubmitVoteView, MyVoteStatusView, COPendingVotesView,
-    COVerifyVoteView, DEPendingBallotsView, DEDecryptBallotView, VoteReceiptView,DEElectionResultsView,  
+    COVerifyVoteView, DEPendingBallotsView, DEDecryptBallotView, VoteReceiptView,DEElectionResultsView,DownloadM1PDFView,
+    DownloadM2PDFView, 
+
    
      
     
@@ -10,6 +12,8 @@ from .views import (
 app_name = 'votes'
 
 urlpatterns = [
+        
+    
     path('submit/', SubmitVoteView.as_view(), name='submit-vote'),
     path('my-vote/', MyVoteStatusView.as_view(), name='my-vote-status'),
     path('receipt/', VoteReceiptView.as_view(), name='vote-receipt'),
@@ -20,8 +24,12 @@ urlpatterns = [
     # CO endpoints
     path('co/pending/', COPendingVotesView.as_view(), name='co-pending-votes'),
     path('co/verify/', COVerifyVoteView.as_view(), name='co-verify-vote'),
-     # DE endpoints
+    # DE endpoints
     path('de/pending/', DEPendingBallotsView.as_view(), name='de-pending-ballots'),
     path('de/decrypt/', DEDecryptBallotView.as_view(), name='de-decrypt-ballot'),
     path('de/results/<int:election_id>/', DEElectionResultsView.as_view(), name='de-results'),
+    #PDF
+    path('<int:vote_id>/download-m1/', DownloadM1PDFView.as_view(), name='download-m1-pdf'),
+    path('<int:vote_id>/download-m2/', DownloadM2PDFView.as_view(), name='download-m2-pdf'),
+
 ]

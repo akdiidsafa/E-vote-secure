@@ -31,12 +31,12 @@ const DEDashboardPage = () => {
       // Charger toutes les élections
       const response = await electionsAPI.getAll();
       const data = Array.isArray(response.data) ? response.data : response.data.results || [];
-      
+
       // Filtrer les élections fermées ou avec des votes
-      const electionsWithVotes = data.filter(e => 
+      const electionsWithVotes = data.filter(e =>
         e.status === 'closed' || e.total_votes > 0
       );
-      
+
       setElections(electionsWithVotes);
     } catch (err) {
       console.error('❌ Erreur:', err);
@@ -84,13 +84,13 @@ const DEDashboardPage = () => {
   const handleDecryptBallot = async (voteId) => {
     try {
       setDecrypting(true);
-      
+
       await votesAPI.decryptBallot({
         vote_id: voteId,
       });
 
       success('Bulletin déchiffré!', 'Le bulletin a été déchiffré et comptabilisé');
-      
+
       // Recharger les bulletins
       if (selectedElection) {
         loadPendingBallots(selectedElection.id);
@@ -134,7 +134,7 @@ const DEDashboardPage = () => {
               </div>
               <div>
                 <h1 className="text-xl font-semibold">Centre de Dépouillement (DE)</h1>
-                <Badge variant="success" className="mt-1">Decryption Entity</Badge>
+                {/* <Badge variant="success" className="mt-1">Decryption Entity</Badge> */}
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -166,7 +166,7 @@ const DEDashboardPage = () => {
           <div>
             <Card>
               <h2 className="text-lg font-semibold mb-4">Élections</h2>
-              
+
               {elections.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-gray-600 text-sm">Aucune élection disponible</p>
@@ -180,15 +180,14 @@ const DEDashboardPage = () => {
                     <div
                       key={election.id}
                       onClick={() => handleSelectElection(election)}
-                      className={`p-3 rounded-lg cursor-pointer transition-all ${
-                        selectedElection?.id === election.id
+                      className={`p-3 rounded-lg cursor-pointer transition-all ${selectedElection?.id === election.id
                           ? 'bg-green-50 border-2 border-green-600'
                           : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
-                      }`}
+                        }`}
                     >
                       <p className="font-semibold text-sm">{election.title}</p>
                       <div className="flex items-center justify-between mt-1">
-                        <Badge 
+                        <Badge
                           variant={election.status === 'closed' ? 'secondary' : 'success'}
                           className="text-xs"
                         >
@@ -252,11 +251,10 @@ const DEDashboardPage = () => {
                           <div key={result.candidate_id} className="bg-gray-50 p-4 rounded-lg">
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center space-x-3">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
-                                  index === 0 ? 'bg-yellow-500' : 
-                                  index === 1 ? 'bg-gray-400' : 
-                                  index === 2 ? 'bg-orange-600' : 'bg-gray-300'
-                                }`}>
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${index === 0 ? 'bg-yellow-500' :
+                                    index === 1 ? 'bg-gray-400' :
+                                      index === 2 ? 'bg-orange-600' : 'bg-gray-300'
+                                  }`}>
                                   {index + 1}
                                 </div>
                                 <div>
@@ -269,7 +267,7 @@ const DEDashboardPage = () => {
                               <div className="text-right">
                                 <p className="text-2xl font-bold text-gray-900">{result.vote_count}</p>
                                 <p className="text-xs text-gray-600">
-                                  {results.total_counted > 0 
+                                  {results.total_counted > 0
                                     ? `${((result.vote_count / results.total_counted) * 100).toFixed(1)}%`
                                     : '0%'
                                   }
@@ -278,16 +276,15 @@ const DEDashboardPage = () => {
                             </div>
                             {/* Barre de progression */}
                             <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div 
-                                className={`h-2 rounded-full ${
-                                  index === 0 ? 'bg-yellow-500' : 
-                                  index === 1 ? 'bg-gray-400' : 
-                                  index === 2 ? 'bg-orange-600' : 'bg-gray-300'
-                                }`}
-                                style={{ 
-                                  width: results.total_counted > 0 
-                                    ? `${(result.vote_count / results.total_counted) * 100}%` 
-                                    : '0%' 
+                              <div
+                                className={`h-2 rounded-full ${index === 0 ? 'bg-yellow-500' :
+                                    index === 1 ? 'bg-gray-400' :
+                                      index === 2 ? 'bg-orange-600' : 'bg-gray-300'
+                                  }`}
+                                style={{
+                                  width: results.total_counted > 0
+                                    ? `${(result.vote_count / results.total_counted) * 100}%`
+                                    : '0%'
                                 }}
                               ></div>
                             </div>
@@ -358,7 +355,7 @@ const DEDashboardPage = () => {
                     <div>
                       <h4 className="font-semibold text-yellow-900 mb-1">Note de Sécurité</h4>
                       <p className="text-sm text-yellow-800">
-                        Vous ne pouvez voir que les choix de vote (bulletins cryptés). 
+                        Vous ne pouvez voir que les choix de vote (bulletins cryptés).
                         Les identités des votants restent anonymes et ne peuvent être liées aux votes.
                       </p>
                     </div>

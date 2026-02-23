@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Vote, TrendingUp, Plus, UserPlus, UserCheck, Lock, LockOpen, User, Clock, Bell } from 'lucide-react';
+import { Users, Vote, TrendingUp, Plus, UserPlus, UserCheck, Lock as LockIcon , LockOpen, User, Clock, Bell } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -7,11 +7,23 @@ import Badge from '../../components/ui/Badge';
 import { useNavigate } from 'react-router-dom';
 import { electionsAPI, usersAPI, invitationsAPI } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../../components/ui/AlertDialog';
 
 const AdminDashboardPage = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { success, error: showError } = useNotification();
+  const [openDialog, setOpenDialog] = useState({ isOpen: false, electionId: null, electionTitle: '' });
+  const [closeDialog, setCloseDialog] = useState({ isOpen: false, electionId: null, electionTitle: '' });
   
   const [stats, setStats] = useState({
     totalElections: 0,
@@ -91,68 +103,80 @@ const AdminDashboardPage = () => {
   };
 
   const handleOpenVote = () => {
-    const draftElections = elections.filter(e => e.status === 'draft');
-    
-    if (draftElections.length === 0) {
-      showError(
-        'Aucune élection disponible',
-        'Aucune élection en brouillon à ouvrir. Créez d\'abord une élection avec des candidats et des électeurs assignés.'
-      );
-      return;
-    }
+  const draftElections = elections.filter(e => e.status === 'draft');
+  
+  if (draftElections.length === 0) {
+    showError(
+      'Aucune élection disponible',
+      'Aucune élection en brouillon à ouvrir. Créez d\'abord une élection avec des candidats et des électeurs assignés.'
+    );
+    return;
+  }
 
-    if (draftElections.length === 1) {
-      openElection(draftElections[0].id, draftElections[0].title);
-    } else {
-      setActionType('open');
-      setShowElectionSelector(true);
-    }
-  };
+  if (draftElections.length === 1) {
+    setOpenDialog({ 
+      isOpen: true, 
+      electionId: draftElections[0].id, 
+      electionTitle: draftElections[0].title 
+    });
+  } else {
+    setActionType('open');
+    setShowElectionSelector(true);
+  }
+};
 
   const handleCloseVote = () => {
-    const openElections = elections.filter(e => e.status === 'open');
-    
-    if (openElections.length === 0) {
-      showError('Aucune élection ouverte', 'Aucune élection ouverte à fermer.');
-      return;
-    }
+  const openElections = elections.filter(e => e.status === 'open');
+  
+  if (openElections.length === 0) {
+    showError('Aucune élection ouverte', 'Aucune élection ouverte à fermer.');
+    return;
+  }
 
-    if (openElections.length === 1) {
-      closeElection(openElections[0].id, openElections[0].title);
-    } else {
-      setActionType('close');
-      setShowElectionSelector(true);
-    }
-  };
+  if (openElections.length === 1) {
+    setCloseDialog({ 
+      isOpen: true, 
+      electionId: openElections[0].id, 
+      electionTitle: openElections[0].title 
+    });
+  } else {
+    setActionType('close');
+    setShowElectionSelector(true);
+  }
+};
 
-  const openElection = async (id, title) => {
-    if (window.confirm(`Voulez-vous ouvrir l'élection "${title}" ?`)) {
-      try {
-        await electionsAPI.open(id);
-        success('Vote ouvert!', `L'élection "${title}" est maintenant ouverte au vote.`);
-        fetchDashboardData();
-      } catch (error) {
-        console.error('❌ Erreur:', error);
-        const errorMsg = error.response?.data?.error || 'Erreur lors de l\'ouverture du vote';
-        showError('Erreur d\'ouverture', errorMsg);
-      }
-    }
+  const openElection = async () => {
+  if (!openDialog.electionId) return;
+
+  try {
+    await electionsAPI.open(openDialog.electionId);
+    success('Vote ouvert!', `L'élection "${openDialog.electionTitle}" est maintenant ouverte au vote.`);
+    fetchDashboardData();
+  } catch (error) {
+    console.error('❌ Erreur:', error);
+    const errorMsg = error.response?.data?.error || 'Erreur lors de l\'ouverture du vote';
+    showError('Erreur d\'ouverture', errorMsg);
+  } finally {
+    setOpenDialog({ isOpen: false, electionId: null, electionTitle: '' });
     setShowElectionSelector(false);
-  };
+  }
+};
 
-  const closeElection = async (id, title) => {
-    if (window.confirm(`⚠️ Voulez-vous vraiment fermer l'élection "${title}" ?\n\nAprès fermeture, aucun vote ne pourra plus être soumis.`)) {
-      try {
-        await electionsAPI.close(id);
-        success('Vote fermé!', `L'élection "${title}" a été fermée avec succès.`);
-        fetchDashboardData();
-      } catch (error) {
-        console.error('❌ Erreur:', error);
-        showError('Erreur de fermeture', 'Impossible de fermer l\'élection.');
-      }
-    }
+  const closeElection = async () => {
+  if (!closeDialog.electionId) return;
+
+  try {
+    await electionsAPI.close(closeDialog.electionId);
+    success('Vote fermé!', `L'élection "${closeDialog.electionTitle}" a été fermée avec succès.`);
+    fetchDashboardData();
+  } catch (error) {
+    console.error('❌ Erreur:', error);
+    showError('Erreur de fermeture', 'Impossible de fermer l\'élection.');
+  } finally {
+    setCloseDialog({ isOpen: false, electionId: null, electionTitle: '' });
     setShowElectionSelector(false);
-  };
+  }
+};
 
   const getStatusBadge = (status) => {
     const statusConfig = {
@@ -422,7 +446,7 @@ const AdminDashboardPage = () => {
               className="w-full justify-center"
               onClick={handleOpenVote}
             >
-              <Lock className="w-5 h-5 mr-2" />
+              <LockIcon className="w-5 h-5 mr-2" />
               Ouvrir le Vote
             </Button>
             
@@ -544,7 +568,22 @@ const AdminDashboardPage = () => {
               {getElectionsToShow().map((election) => (
                 <button
                   key={election.id}
-                  onClick={() => actionType === 'open' ? openElection(election.id, election.title) : closeElection(election.id, election.title)}
+                  onClick={() => {
+                    if (actionType === 'open') {
+                      setOpenDialog({ 
+                        isOpen: true, 
+                        electionId: election.id, 
+                        electionTitle: election.title 
+                      });
+                    } else {
+                      setCloseDialog({ 
+                        isOpen: true, 
+                        electionId: election.id, 
+                        electionTitle: election.title 
+                      });
+                    }
+                    setShowElectionSelector(false);
+                  }}
                   className="w-full text-left p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 transition-all"
                 >
                   <div className="flex items-center justify-between">
@@ -573,6 +612,64 @@ const AdminDashboardPage = () => {
           </Card>
         </div>
       )}
+
+      {/* ✅ AlertDialog: Ouvrir le vote */}
+      <AlertDialog 
+        open={openDialog.isOpen} 
+        onOpenChange={(open) => setOpenDialog({ isOpen: open, electionId: null, electionTitle: '' })}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader className="items-center">
+            <div className="bg-green-100 mx-auto mb-2 flex size-12 items-center justify-center rounded-full">
+              <LockOpen className="text-green-600 size-6" />
+            </div>
+            <AlertDialogTitle>Ouvrir le vote ?</AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              Voulez-vous ouvrir l'élection <strong>{openDialog.electionTitle}</strong> ?
+              <br /><br />
+              Les électeurs assignés pourront commencer à voter dès maintenant.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={openElection}
+              className="bg-green-600 hover:bg-green-700 focus-visible:ring-green-600"
+            >
+              Ouvrir le vote
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ✅ AlertDialog: Fermer le vote */}
+      <AlertDialog 
+        open={closeDialog.isOpen} 
+        onOpenChange={(open) => setCloseDialog({ isOpen: open, electionId: null, electionTitle: '' })}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader className="items-center">
+            <div className="bg-red-100 mx-auto mb-2 flex size-12 items-center justify-center rounded-full">
+              <LockIcon className="text-red-600 size-6" />
+            </div>
+            <AlertDialogTitle>Fermer le vote ?</AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              ⚠️ Voulez-vous vraiment fermer l'élection <strong>{closeDialog.electionTitle}</strong> ?
+              <br /><br />
+              Après fermeture, aucun vote ne pourra plus être soumis. Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={closeElection}
+              className="bg-red-600 hover:bg-red-700 focus-visible:ring-red-600"
+            >
+              Fermer le vote
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

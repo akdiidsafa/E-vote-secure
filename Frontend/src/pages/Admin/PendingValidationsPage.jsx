@@ -1,11 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, CheckCircle, XCircle, User, Mail } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle as CheckCircleIcon, XCircle as XCircleIcon , User, Mail } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { invitationsAPI } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../../components/ui/AlertDialog';
 
 const PendingValidationsPage = () => {
   const navigate = useNavigate();
@@ -13,6 +23,8 @@ const PendingValidationsPage = () => {
   
   const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [approveDialog, setApproveDialog] = useState({ isOpen: false, invitationId: null, voterName: '' });
+  const [rejectDialog, setRejectDialog] = useState({ isOpen: false, invitationId: null, voterName: '' });
 
   useEffect(() => {
     loadPendingInvitations();
@@ -32,31 +44,35 @@ const PendingValidationsPage = () => {
     }
   };
 
-  const handleValidate = async (invitationId, action) => {
-    const actionText = action === 'approve' ? 'approuver' : 'rejeter';
-    
-    if (!window.confirm(`Voulez-vous vraiment ${actionText} cette demande?`)) {
-      return;
-    }
+  const handleApprove = async () => {
+  if (!approveDialog.invitationId) return;
 
-    try {
-      await invitationsAPI.validate(invitationId, action);
-      
-      if (action === 'approve') {
-        success(
-          'Demande approuvée!',
-          'Les identifiants ont été envoyés au votant par email.'
-        );
-      } else {
-        success('Demande rejetée', 'Le votant a été notifié du rejet.');
-      }
-      
-      loadPendingInvitations();
-    } catch (err) {
-      console.error('❌ Erreur:', err);
-      showError('Erreur de validation', 'Impossible de traiter la demande');
-    }
-  };
+  try {
+    await invitationsAPI.validate(approveDialog.invitationId, 'approve');
+    success('Demande approuvée!', 'Les identifiants ont été envoyés au votant par email.');
+    loadPendingInvitations();
+  } catch (err) {
+    console.error('❌ Erreur:', err);
+    showError('Erreur de validation', 'Impossible de traiter la demande');
+  } finally {
+    setApproveDialog({ isOpen: false, invitationId: null, voterName: '' });
+  }
+};
+
+const handleReject = async () => {
+  if (!rejectDialog.invitationId) return;
+
+  try {
+    await invitationsAPI.validate(rejectDialog.invitationId, 'reject');
+    success('Demande rejetée', 'Le votant a été notifié du rejet.');
+    loadPendingInvitations();
+  } catch (err) {
+    console.error('❌ Erreur:', err);
+    showError('Erreur de validation', 'Impossible de traiter la demande');
+  } finally {
+    setRejectDialog({ isOpen: false, invitationId: null, voterName: '' });
+  }
+};
 
   if (loading) {
     return (
@@ -137,30 +153,97 @@ const PendingValidationsPage = () => {
 
                   <div className="flex space-x-2">
                     <Button
-                      variant="success"
-                      size="sm"
-                      onClick={() => handleValidate(invitation.id, 'approve')}
-                    >
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Approuver
-                    </Button>
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={() => handleValidate(invitation.id, 'reject')}
-                    >
-                      <XCircle className="w-4 h-4 mr-2" />
-                      Rejeter
-                    </Button>
-                  </div>
+                    variant="success"
+                    size="sm"
+                    onClick={() => setApproveDialog({ 
+                      isOpen: true, 
+                      invitationId: invitation.id, 
+                      voterName: invitation.full_name 
+                      })}
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Approuver
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => setRejectDialog({ 
+                  isOpen: true, 
+                  invitationId: invitation.id, 
+                  voterName: invitation.full_name 
+                })}
+              >
+                <XCircle className="w-4 h-4 mr-2" />
+                Rejeter
+              </Button>
+            </div>
                 </div>
               </Card>
             ))}
           </div>
         )}
       </div>
+      {/* ✅ AlertDialog: Approuver */}
+      <AlertDialog 
+        open={approveDialog.isOpen} 
+        onOpenChange={(open) => setApproveDialog({ isOpen: open, invitationId: null, voterName: '' })}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader className="items-center">
+            <div className="bg-green-100 mx-auto mb-2 flex size-12 items-center justify-center rounded-full">
+              <CheckCircleIcon className="text-green-600 size-6" />
+            </div>
+            <AlertDialogTitle>Approuver cette demande ?</AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              Voulez-vous approuver la demande de <strong>{approveDialog.voterName}</strong> ?
+              <br /><br />
+              Les identifiants de connexion seront automatiquement envoyés par email.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleApprove}
+              className="bg-green-600 hover:bg-green-700 focus-visible:ring-green-600"
+            >
+              Approuver
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ✅ AlertDialog: Rejeter */}
+      <AlertDialog 
+        open={rejectDialog.isOpen} 
+        onOpenChange={(open) => setRejectDialog({ isOpen: open, invitationId: null, voterName: '' })}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader className="items-center">
+            <div className="bg-red-100 mx-auto mb-2 flex size-12 items-center justify-center rounded-full">
+              <XCircleIcon className="text-red-600 size-6" />
+            </div>
+            <AlertDialogTitle>Rejeter cette demande ?</AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              Voulez-vous rejeter la demande de <strong>{rejectDialog.voterName}</strong> ?
+              <br /><br />
+              Le votant sera notifié par email du rejet de sa demande.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleReject}
+              className="bg-red-600 hover:bg-red-700 focus-visible:ring-red-600"
+            >
+              Rejeter
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
+
+
 
 export default PendingValidationsPage;

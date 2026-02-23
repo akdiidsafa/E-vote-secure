@@ -20,6 +20,67 @@ from elections.models import Election, ElectionVoterAssignment
 from candidates.models import Candidate
 from django.db.models import Count
 
+from django.http import FileResponse
+from .pdf_utils import generate_m1_pdf, generate_m2_pdf, extract_pgp_from_pdf
+
+
+class DownloadM1PDFView(APIView):
+    """
+    GET /api/votes/<vote_id>/download-m1/ - Télécharger M1 en PDF
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request, vote_id):
+        # Seul le CO peut télécharger M1
+        if request.user.role != 'co':
+            return Response({
+                'error': 'Accès réservé au CO'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        vote = get_object_or_404(Vote, pk=vote_id)
+        
+        # Générer le PDF
+        pdf_buffer = generate_m1_pdf(vote)
+        
+        # Retourner le fichier
+        response = FileResponse(
+            pdf_buffer,
+            as_attachment=True,
+            filename=f'identite_vote_{vote.id}.pdf'
+        )
+        response['Content-Type'] = 'application/pdf'
+        
+        return response
+
+
+class DownloadM2PDFView(APIView):
+    """
+    GET /api/votes/<vote_id>/download-m2/ - Télécharger M2 en PDF
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request, vote_id):
+        # CO et DE peuvent télécharger M2
+        if request.user.role not in ['co', 'de']:
+            return Response({
+                'error': 'Accès réservé au CO et DE'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        vote = get_object_or_404(Vote, pk=vote_id)
+        
+        # Générer le PDF
+        pdf_buffer = generate_m2_pdf(vote)
+        
+        # Retourner le fichier
+        response = FileResponse(
+            pdf_buffer,
+            as_attachment=True,
+            filename=f'bulletin_vote_{vote.id}.pdf'
+        )
+        response['Content-Type'] = 'application/pdf'
+        
+        return response
+
 
 class SubmitVoteView(APIView):
     """

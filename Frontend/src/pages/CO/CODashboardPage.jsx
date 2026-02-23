@@ -1,11 +1,16 @@
+
+
+
+
+
 // import React, { useState, useEffect } from 'react';
 // import { useNavigate } from 'react-router-dom';
-// import { Shield, CheckCircle, XCircle, Eye, User, RefreshCw } from 'lucide-react';
+// import { Shield, CheckCircle, XCircle, Eye, User, RefreshCw, Download } from 'lucide-react';
 // import { useAuth } from '../../contexts/AuthContext';
 // import Card from '../../components/ui/Card';
 // import Button from '../../components/ui/Button';
 // import Badge from '../../components/ui/Badge';
-// import { votesAPI } from '../../services/api';
+// import { votesAPI, electionsAPI } from '../../services/api';
 // import { useNotification } from '../../contexts/NotificationContext';
 // import { decryptMessage } from '../../utils/crypto';
 
@@ -29,14 +34,39 @@
 //   const loadPendingVotes = async () => {
 //     try {
 //       setLoading(true);
-//       const response = await votesAPI.getPendingVotes();
+//       console.log('📡 Chargement des votes en attente...');
+//       const response = await votesAPI.getPendingCO();
 //       const data = Array.isArray(response.data) ? response.data : [];
+//       console.log('✅ Votes reçus:', data);
 //       setPendingVotes(data);
 //     } catch (err) {
 //       console.error('❌ Erreur:', err);
 //       showError('Erreur de chargement', 'Impossible de charger les votes en attente');
 //     } finally {
 //       setLoading(false);
+//     }
+//   };
+
+//   // ✅ NOUVEAU: Télécharger M1 PDF
+//   const handleDownloadM1 = async (vote) => {
+//     try {
+//       console.log('📥 Téléchargement M1 PDF...');
+//       const response = await votesAPI.downloadM1PDF(vote.id);
+      
+//       const blob = new Blob([response.data], { type: 'application/pdf' });
+//       const url = window.URL.createObjectURL(blob);
+//       const link = document.createElement('a');
+//       link.href = url;
+//       link.download = `identite_vote_${vote.id}.pdf`;
+//       document.body.appendChild(link);
+//       link.click();
+//       document.body.removeChild(link);
+//       window.URL.revokeObjectURL(url);
+      
+//       success('PDF téléchargé', 'Identité M1 téléchargée avec succès');
+//     } catch (err) {
+//       console.error('❌ Erreur téléchargement M1:', err);
+//       showError('Erreur', 'Impossible de télécharger M1');
 //     }
 //   };
 
@@ -47,18 +77,52 @@
 //     setDecryptedIdentity(null);
 
 //     try {
-//       // TODO: Récupérer la clé privée CO depuis le backend
-//       // Pour l'instant, afficher le message chiffré
+//       console.log('🔓 Déchiffrement PGP de M1...');
+      
+//       // Récupérer la clé privée CO
+//       const keysResponse = await electionsAPI.getPrivateKeys(vote.election_id);
+//       const { co_private_key } = keysResponse.data;
+
+//       if (!co_private_key) {
+//         throw new Error('Clé privée CO non disponible');
+//       }
+
+//       console.log('✅ Clé privée PGP CO récupérée');
+
+//       // Déchiffrer M1 avec PGP (ASYNC)
+//       const decryptedText = await decryptMessage(vote.m1_identity, co_private_key);
+
+//       if (!decryptedText) {
+//         throw new Error('Échec du déchiffrement PGP');
+//       }
+
+//       console.log('✅ M1 déchiffré avec PGP');
+
+//       // Parser le JSON
+//       const identityData = JSON.parse(decryptedText);
+      
+//       console.log('📋 Identité déchiffrée:', identityData);
+
+//       setDecryptedIdentity({
+//         voter_id: identityData.voter_id,
+//         voter_name: identityData.voter_name,
+//         voter_email: identityData.voter_email,
+//         linking_id: identityData.linking_id,
+//         timestamp: identityData.timestamp,
+//         encrypted: false,
+//       });
+
+//     } catch (error) {
+//       console.error('❌ Erreur de déchiffrement PGP:', error);
+      
 //       setDecryptedIdentity({
 //         voter_id: '***',
-//         voter_name: 'Chiffré - Nécessite clé privée CO',
+//         voter_name: 'Erreur de déchiffrement PGP',
 //         voter_email: '***@***.***',
 //         encrypted: true,
-//         m1_preview: vote.m1_identity.substring(0, 100) + '...'
+//         m1_preview: vote.m1_identity.substring(0, 100) + '...',
+//         error: error.message
 //       });
-//     } catch (error) {
-//       console.error('Erreur de déchiffrement:', error);
-//       showError('Erreur', 'Impossible de déchiffrer l\'identité');
 //     } finally {
 //       setDecrypting(false);
 //     }
@@ -70,16 +134,34 @@
 //     try {
 //       setVerifying(true);
       
-//       await votesAPI.verifyVote({
+//       console.log(`📤 ${action === 'approve' ? 'Approbation' : 'Rejet'} du vote...`);
+      
+//       await votesAPI.verifyCO({
 //         vote_id: selectedVote.id,
 //         action: action,
 //         notes: '',
 //       });
 
+//       // ✅ NOUVEAU: Télécharger M2 PDF si approuvé
+//       if (action === 'approve') {
+//         console.log('📥 Téléchargement automatique du bulletin M2...');
+//         const response = await votesAPI.downloadM2PDF(selectedVote.id);
+        
+//         const blob = new Blob([response.data], { type: 'application/pdf' });
+//         const url = window.URL.createObjectURL(blob);
+//         const link = document.createElement('a');
+//         link.href = url;
+//         link.download = `bulletin_vote_${selectedVote.id}.pdf`;
+//         document.body.appendChild(link);
+//         link.click();
+//         document.body.removeChild(link);
+//         window.URL.revokeObjectURL(url);
+//       }
+
 //       success(
 //         action === 'approve' ? 'Vote approuvé!' : 'Vote rejeté',
 //         action === 'approve' 
-//           ? 'Le vote a été approuvé et transféré au DE'
+//           ? 'Le vote a été approuvé et le bulletin M2 a été généré'
 //           : 'Le vote a été rejeté'
 //       );
 
@@ -88,7 +170,7 @@
 //       loadPendingVotes();
 //     } catch (err) {
 //       console.error('❌ Erreur:', err);
-//       showError('Erreur de vérification', 'Impossible de traiter le vote');
+//       showError('Erreur de vérification', err.response?.data?.error || 'Impossible de traiter le vote');
 //     } finally {
 //       setVerifying(false);
 //     }
@@ -118,8 +200,7 @@
 //                 <Shield className="w-6 h-6 text-white" />
 //               </div>
 //               <div>
-//                 <h1 className="text-xl font-semibold">Centre d'Identification (CO)</h1>
-//                 <Badge variant="warning" className="mt-1">Certificate Officer</Badge>
+//                 <h1 className="text-xl font-semibold">Centre de Comptage (CO)</h1>
 //               </div>
 //             </div>
 //             <div className="flex items-center space-x-4">
@@ -149,7 +230,7 @@
 //         <div className="mb-8">
 //           <h2 className="text-2xl font-bold text-gray-900 mb-2">Votes en attente de vérification</h2>
 //           <p className="text-gray-600">
-//             Vérifiez l'identité des votants avant de transférer les votes au centre de comptage
+//             Vérifiez l'identité des votants avant de transférer les votes au centre de dépouillement
 //           </p>
 //         </div>
 
@@ -198,6 +279,15 @@
 //                     </p>
 //                   </div>
 //                   <div className="flex space-x-2">
+//                     {/* ✅ NOUVEAU: Bouton M1 PDF */}
+//                     <Button
+//                       variant="secondary"
+//                       size="sm"
+//                       onClick={() => handleDownloadM1(vote)}
+//                     >
+//                       <Download className="w-4 h-4 mr-2" />
+//                       M1 PDF
+//                     </Button>
 //                     <Button
 //                       variant="primary"
 //                       size="sm"
@@ -226,12 +316,22 @@
 //                 Message M1 (Identité)
 //               </h3>
 //               {decrypting ? (
-//                 <p className="text-sm text-blue-800">⏳ Déchiffrement en cours...</p>
+//                 <div className="flex items-center space-x-2">
+//                   <RefreshCw className="w-4 h-4 text-blue-600 animate-spin" />
+//                   <p className="text-sm text-blue-800">⏳ Déchiffrement PGP en cours...</p>
+//                 </div>
 //               ) : decryptedIdentity ? (
 //                 decryptedIdentity.encrypted ? (
 //                   <div className="space-y-2">
+//                     {decryptedIdentity.error ? (
+//                       <div className="bg-red-50 border border-red-200 rounded p-3 mb-2">
+//                         <p className="text-sm text-red-800">
+//                           ❌ <strong>Erreur:</strong> {decryptedIdentity.error}
+//                         </p>
+//                       </div>
+//                     ) : null}
 //                     <p className="text-sm text-orange-800">
-//                       🔒 <strong>Message chiffré</strong>
+//                       🔒 <strong>Message chiffré PGP</strong>
 //                     </p>
 //                     <p className="text-xs text-gray-600 break-all font-mono bg-white p-2 rounded">
 //                       {decryptedIdentity.m1_preview}
@@ -241,16 +341,30 @@
 //                     </p>
 //                   </div>
 //                 ) : (
-//                   <div className="space-y-2">
-//                     <p className="text-sm">
-//                       <strong>ID Votant:</strong> {decryptedIdentity.voter_id}
-//                     </p>
-//                     <p className="text-sm">
-//                       <strong>Nom:</strong> {decryptedIdentity.voter_name}
-//                     </p>
-//                     <p className="text-sm">
-//                       <strong>Email:</strong> {decryptedIdentity.voter_email}
-//                     </p>
+//                   <div className="space-y-3">
+//                     <div className="bg-white p-3 rounded border border-green-200">
+//                       <p className="text-xs text-gray-600 mb-1">ID Votant</p>
+//                       <p className="text-sm font-semibold text-gray-900">{decryptedIdentity.voter_id}</p>
+//                     </div>
+//                     <div className="bg-white p-3 rounded border border-green-200">
+//                       <p className="text-xs text-gray-600 mb-1">Nom complet</p>
+//                       <p className="text-sm font-semibold text-gray-900">{decryptedIdentity.voter_name}</p>
+//                     </div>
+//                     <div className="bg-white p-3 rounded border border-green-200">
+//                       <p className="text-xs text-gray-600 mb-1">Email</p>
+//                       <p className="text-sm font-semibold text-gray-900">{decryptedIdentity.voter_email}</p>
+//                     </div>
+//                     <div className="bg-white p-3 rounded border border-green-200">
+//                       <p className="text-xs text-gray-600 mb-1">Date du vote</p>
+//                       <p className="text-sm font-semibold text-gray-900">
+//                         {new Date(decryptedIdentity.timestamp).toLocaleString('fr-FR')}
+//                       </p>
+//                     </div>
+//                     <div className="bg-green-50 border border-green-200 rounded p-2 mt-2">
+//                       <p className="text-xs text-green-800">
+//                         ✅ Identité déchiffrée avec PGP
+//                       </p>
+//                     </div>
 //                   </div>
 //                 )
 //               ) : (
@@ -278,7 +392,7 @@
 //               <Button
 //                 variant="danger"
 //                 onClick={() => handleVerify('reject')}
-//                 disabled={verifying}
+//                 disabled={verifying || decryptedIdentity?.encrypted}
 //               >
 //                 <XCircle className="w-4 h-4 mr-2" />
 //                 Rejeter
@@ -286,7 +400,7 @@
 //               <Button
 //                 variant="success"
 //                 onClick={() => handleVerify('approve')}
-//                 disabled={verifying}
+//                 disabled={verifying || decryptedIdentity?.encrypted}
 //               >
 //                 <CheckCircle className="w-4 h-4 mr-2" />
 //                 {verifying ? 'Traitement...' : 'Approuver'}
@@ -302,7 +416,7 @@
 // export default CODashboardPage;
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, CheckCircle, XCircle, Eye, User, RefreshCw } from 'lucide-react';
+import { Shield, CheckCircle, XCircle, Eye, User, RefreshCw, Download } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -310,11 +424,24 @@ import Badge from '../../components/ui/Badge';
 import { votesAPI, electionsAPI } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
 import { decryptMessage } from '../../utils/crypto';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../../components/ui/AlertDialog';
 
 const CODashboardPage = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { success, error: showError } = useNotification();
+
+  const [approveDialog, setApproveDialog] = useState({ isOpen: false, voteId: null, voterId: '' });
+  const [rejectDialog, setRejectDialog] = useState({ isOpen: false, voteId: null, voterId: '' });
 
   const [pendingVotes, setPendingVotes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -331,14 +458,38 @@ const CODashboardPage = () => {
   const loadPendingVotes = async () => {
     try {
       setLoading(true);
-      const response = await votesAPI.getPendingVotes();
+      console.log('📡 Chargement des votes en attente...');
+      const response = await votesAPI.getPendingCO();
       const data = Array.isArray(response.data) ? response.data : [];
+      console.log('✅ Votes reçus:', data);
       setPendingVotes(data);
     } catch (err) {
       console.error('❌ Erreur:', err);
       showError('Erreur de chargement', 'Impossible de charger les votes en attente');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownloadM1 = async (vote) => {
+    try {
+      console.log('📥 Téléchargement M1 PDF...');
+      const response = await votesAPI.downloadM1PDF(vote.id);
+      
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `identite_vote_${vote.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      success('PDF téléchargé', 'Identité M1 téléchargée avec succès');
+    } catch (err) {
+      console.error('❌ Erreur téléchargement M1:', err);
+      showError('Erreur', 'Impossible de télécharger M1');
     }
   };
 
@@ -350,7 +501,7 @@ const CODashboardPage = () => {
 
     try {
       console.log('🔓 Déchiffrement PGP de M1...');
-      
+
       // 1. Récupérer la clé privée CO
       const keysResponse = await electionsAPI.getPrivateKeys(vote.election_id);
       const { co_private_key } = keysResponse.data;
@@ -361,7 +512,6 @@ const CODashboardPage = () => {
 
       console.log('✅ Clé privée PGP CO récupérée');
 
-      // 2. Déchiffrer M1 avec PGP (ASYNC)
       const decryptedText = await decryptMessage(vote.m1_identity, co_private_key);
 
       if (!decryptedText) {
@@ -370,22 +520,22 @@ const CODashboardPage = () => {
 
       console.log('✅ M1 déchiffré avec PGP');
 
-      // 3. Parser le JSON
       const identityData = JSON.parse(decryptedText);
-      
+
       console.log('📋 Identité déchiffrée:', identityData);
 
       setDecryptedIdentity({
         voter_id: identityData.voter_id,
         voter_name: identityData.voter_name,
         voter_email: identityData.voter_email,
+        linking_id: identityData.linking_id,
         timestamp: identityData.timestamp,
         encrypted: false,
       });
 
     } catch (error) {
       console.error('❌ Erreur de déchiffrement PGP:', error);
-      
+
       setDecryptedIdentity({
         voter_id: '***',
         voter_name: 'Erreur de déchiffrement PGP',
@@ -399,33 +549,72 @@ const CODashboardPage = () => {
     }
   };
 
-  const handleVerify = async (action) => {
-    if (!selectedVote) return;
+  const handleApprove = async () => {
+    if (!approveDialog.voteId) return;
 
     try {
       setVerifying(true);
       
-      await votesAPI.verifyVote({
-        vote_id: selectedVote.id,
-        action: action,
+      console.log('📤 Approbation du vote...');
+      
+      await votesAPI.verifyCO({
+        vote_id: approveDialog.voteId,
+        action: 'approve',
         notes: '',
       });
 
-      success(
-        action === 'approve' ? 'Vote approuvé!' : 'Vote rejeté',
-        action === 'approve' 
-          ? 'Le vote a été approuvé et transféré au DE'
-          : 'Le vote a été rejeté'
-      );
+      console.log('📥 Téléchargement automatique du bulletin M2...');
+      const response = await votesAPI.downloadM2PDF(approveDialog.voteId);
+      
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `bulletin_vote_${approveDialog.voteId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      success('Vote approuvé', 'Vote approuvé et bulletin M2 généré avec succès');
 
       setShowModal(false);
       setSelectedVote(null);
       loadPendingVotes();
     } catch (err) {
       console.error('❌ Erreur:', err);
-      showError('Erreur de vérification', 'Impossible de traiter le vote');
+      showError('Erreur', err.response?.data?.error || 'Impossible d\'approuver le vote');
     } finally {
       setVerifying(false);
+      setApproveDialog({ isOpen: false, voteId: null, voterId: '' });
+    }
+  };
+
+  const handleReject = async () => {
+    if (!rejectDialog.voteId) return;
+
+    try {
+      setVerifying(true);
+      
+      console.log('📤 Rejet du vote...');
+      
+      await votesAPI.verifyCO({
+        vote_id: rejectDialog.voteId,
+        action: 'reject',
+        notes: '',
+      });
+
+      success('Vote rejeté', 'Le vote a été rejeté');
+
+      setShowModal(false);
+      setSelectedVote(null);
+      loadPendingVotes();
+    } catch (err) {
+      console.error('❌ Erreur:', err);
+      showError('Erreur', 'Impossible de rejeter le vote');
+    } finally {
+      setVerifying(false);
+      setRejectDialog({ isOpen: false, voteId: null, voterId: '' });
     }
   };
 
@@ -453,8 +642,9 @@ const CODashboardPage = () => {
                 <Shield className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-semibold">Centre d'Identification (CO)</h1>
-                <Badge variant="warning" className="mt-1">Certificate Officer</Badge>
+
+                <h1 className="text-xl font-semibold">Centre de Comptage (CO)</h1>
+
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -484,12 +674,12 @@ const CODashboardPage = () => {
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Votes en attente de vérification</h2>
           <p className="text-gray-600">
-            Vérifiez l'identité des votants avant de transférer les votes au centre de comptage
+            Vérifiez l'identité des votants avant de transférer les votes au centre de dépouillement
           </p>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-6 mb-6">
+        {/* <div className="grid grid-cols-3 gap-6 mb-6">
           <Card>
             <p className="text-sm text-gray-600 mb-1">En attente</p>
             <p className="text-3xl font-bold text-yellow-600">{pendingVotes.length}</p>
@@ -502,7 +692,7 @@ const CODashboardPage = () => {
             <p className="text-sm text-gray-600 mb-1">Rejetés aujourd'hui</p>
             <p className="text-3xl font-bold text-red-600">0</p>
           </Card>
-        </div>
+        </div> */}
 
         {/* Votes List */}
         {pendingVotes.length === 0 ? (
@@ -534,6 +724,14 @@ const CODashboardPage = () => {
                   </div>
                   <div className="flex space-x-2">
                     <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleDownloadM1(vote)}
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      M1 PDF
+                    </Button>
+                    <Button
                       variant="primary"
                       size="sm"
                       onClick={() => handleViewVote(vote)}
@@ -554,7 +752,7 @@ const CODashboardPage = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <Card className="max-w-2xl w-full max-h-[80vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">Vérification d'identité - Vote #{selectedVote.id}</h2>
-            
+
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
               <h3 className="font-semibold text-blue-900 mb-2 flex items-center">
                 <Shield className="w-5 h-5 mr-2" />
@@ -636,24 +834,96 @@ const CODashboardPage = () => {
               </Button>
               <Button
                 variant="danger"
-                onClick={() => handleVerify('reject')}
-                disabled={verifying}
+                onClick={() => {
+                  setShowModal(false);
+                  setRejectDialog({ 
+                    isOpen: true, 
+                    voteId: selectedVote.id, 
+                    voterId: decryptedIdentity?.voter_name || 'Votant' 
+                  });
+                }}
+                disabled={verifying || decryptedIdentity?.encrypted}
               >
                 <XCircle className="w-4 h-4 mr-2" />
                 Rejeter
               </Button>
               <Button
                 variant="success"
-                onClick={() => handleVerify('approve')}
-                disabled={verifying}
+                onClick={() => {
+                  setShowModal(false);
+                  setApproveDialog({ 
+                    isOpen: true, 
+                    voteId: selectedVote.id, 
+                    voterId: decryptedIdentity?.voter_name || 'Votant' 
+                  });
+                }}
+                disabled={verifying || decryptedIdentity?.encrypted}
               >
                 <CheckCircle className="w-4 h-4 mr-2" />
-                {verifying ? 'Traitement...' : 'Approuver'}
+                Approuver
               </Button>
             </div>
           </Card>
         </div>
       )}
+
+      {/* ✅ AlertDialog: Approuver */}
+      <AlertDialog 
+        open={approveDialog.isOpen} 
+        onOpenChange={(open) => setApproveDialog({ isOpen: open, voteId: null, voterId: '' })}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader className="items-center">
+            <div className="bg-green-100 mx-auto mb-2 flex size-12 items-center justify-center rounded-full">
+              <CheckCircle className="text-green-600 size-6" />
+            </div>
+            <AlertDialogTitle>Approuver ce vote ?</AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              Confirmez-vous l'approbation du vote de <strong>{approveDialog.voterId}</strong> ?
+              <br /><br />
+              Le bulletin M2 sera généré et transféré au DE pour dépouillement.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleApprove}
+              className="bg-green-600 hover:bg-green-700 focus-visible:ring-green-600"
+            >
+              Approuver
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ✅ AlertDialog: Rejeter */}
+      <AlertDialog 
+        open={rejectDialog.isOpen} 
+        onOpenChange={(open) => setRejectDialog({ isOpen: open, voteId: null, voterId: '' })}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader className="items-center">
+            <div className="bg-red-100 mx-auto mb-2 flex size-12 items-center justify-center rounded-full">
+              <XCircle className="text-red-600 size-6" />
+            </div>
+            <AlertDialogTitle>Rejeter ce vote ?</AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              Confirmez-vous le rejet du vote de <strong>{rejectDialog.voterId}</strong> ?
+              <br /><br />
+              Cette action est irréversible et le votant devra soumettre un nouveau vote.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleReject}
+              className="bg-red-600 hover:bg-red-700 focus-visible:ring-red-600"
+            >
+              Rejeter
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

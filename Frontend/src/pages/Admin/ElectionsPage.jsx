@@ -1,15 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Calendar, Users, BarChart } from 'lucide-react';
+import { Plus, Calendar, Users, BarChart,TriangleAlert } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { electionsAPI } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../../components/ui/AlertDialog';
 
 const ElectionsPage = () => {
   const navigate = useNavigate();
   const { success, error: showError } = useNotification();
+  const [deleteDialog, setDeleteDialog] = useState({ isOpen: false, electionId: null, electionTitle: '' });
   const [elections, setElections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -38,19 +49,19 @@ const ElectionsPage = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette élection ?')) {
-      return;
-    }
+  const handleDelete = async () => {
+  if (!deleteDialog.electionId) return;
 
-    try {
-      await electionsAPI.delete(id);
-      success('Élection supprimée!', 'L\'élection a été supprimée avec succès.');
-      fetchElections();
-    } catch (err) {
-      showError('Erreur de suppression', 'Impossible de supprimer l\'élection.');
-    }
-  };
+  try {
+    await electionsAPI.delete(deleteDialog.electionId);
+    success('Élection supprimée!', 'L\'élection a été supprimée avec succès.');
+    fetchElections();
+  } catch (err) {
+    showError('Erreur de suppression', 'Impossible de supprimer l\'élection.');
+  } finally {
+    setDeleteDialog({ isOpen: false, electionId: null, electionTitle: '' });
+  }
+};
 
   const getStatusBadge = (status) => {
     const statusConfig = {
@@ -233,7 +244,11 @@ const ElectionsPage = () => {
                             Modifier
                           </button>
                           <button
-                            onClick={() => handleDelete(election.id)}
+                            onClick={() => setDeleteDialog({ 
+                              isOpen: true, 
+                              electionId: election.id, 
+                              electionTitle: election.title 
+                            })}
                             className="text-red-600 hover:text-red-700 text-sm font-medium"
                           >
                             Supprimer
@@ -256,6 +271,34 @@ const ElectionsPage = () => {
           </p>
         </div> */}
       </div>
+      {/* ✅ AlertDialog de suppression */}
+      <AlertDialog 
+        open={deleteDialog.isOpen} 
+        onOpenChange={(open) => setDeleteDialog({ isOpen: open, electionId: null, electionTitle: '' })}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader className="items-center">
+            <div className="bg-red-100 mx-auto mb-2 flex size-12 items-center justify-center rounded-full">
+              <TriangleAlert className="text-red-600 size-6" />
+            </div>
+            <AlertDialogTitle>Supprimer cette élection ?</AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              Cette action ne peut pas être annulée. Cela supprimera définitivement l'élection
+              <strong> {deleteDialog.electionTitle}</strong> ainsi que tous ses candidats et votes associés.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-red-600 hover:bg-red-700 focus-visible:ring-red-600"
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+   
     </div>
   );
 };

@@ -1,27 +1,36 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Edit2, Trash2, User } from 'lucide-react';
+import { ArrowLeft, Plus, Edit2, Trash2, User, Upload, X,TriangleAlert } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Badge from '../../components/ui/Badge';
 import { candidatesAPI, electionsAPI } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
+import {  AlertDialog,  AlertDialogAction,  AlertDialogCancel,  AlertDialogContent,  AlertDialogDescription,  AlertDialogFooter,  AlertDialogHeader,
+  AlertDialogTitle,} from '../../components/ui/AlertDialog';
+
+
 
 const CandidatesPage = () => {
   const navigate = useNavigate();
+  const [deleteDialog, setDeleteDialog] = useState({ 
+    isOpen: false, 
+    candidateId: null, 
+    candidateName: '' 
+  });
   const { success, error: showError } = useNotification();
   const [showAddModal, setShowAddModal] = useState(false);
   const [candidates, setCandidates] = useState([]);
   const [elections, setElections] = useState([]);
   const [selectedElection, setSelectedElection] = useState('');
   const [loading, setLoading] = useState(true);
+  const [photoPreview, setPhotoPreview] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
-    party: '',
-    program: '',
-    photo: '',
+    party: '', 
+    program: '', 
+    photo: null, 
     election: '',
   });
 
@@ -90,6 +99,39 @@ const CandidatesPage = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // ✅ NOUVEAU: Gestion de l'upload de photo
+  const handlePhotoChange = (e) => {
+    const file = e.target.files[0];
+    
+    if (!file) return;
+
+    // Vérifier le type de fichier
+    if (!file.type.startsWith('image/')) {
+      showError('Fichier invalide', 'Veuillez sélectionner une image (.jpg, .png)');
+      return;
+    }
+
+    // Vérifier la taille (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      showError('Fichier trop volumineux', 'La taille maximale est de 5 MB');
+      return;
+    }
+
+    // Créer une prévisualisation
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPhotoPreview(reader.result);
+      setFormData(prev => ({ ...prev, photo: file }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // ✅ NOUVEAU: Supprimer la photo
+  const handleRemovePhoto = () => {
+    setPhotoPreview(null);
+    setFormData(prev => ({ ...prev, photo: null }));
+  };
+
   const handleAddCandidate = async (e) => {
     e.preventDefault();
     
@@ -99,32 +141,35 @@ const CandidatesPage = () => {
     }
 
     try {
-      const candidateData = {
-        name: formData.name,
-        party: formData.party || '',
-        program: formData.program || '',
-        election: parseInt(formData.election),
-        order: 0,
-      };
+      // ✅ MODIFIÉ: Utiliser FormData pour l'upload de fichier
+      const candidateFormData = new FormData();
+      candidateFormData.append('name', formData.name);
+      candidateFormData.append('party', formData.party || ''); // Profession/Poste
+      candidateFormData.append('program', formData.program || ''); // Description
+      candidateFormData.append('election', parseInt(formData.election));
+      candidateFormData.append('order', 0);
 
-      if (formData.photo && formData.photo.trim() !== '') {
-        candidateData.photo = formData.photo;
+      // Ajouter la photo si elle existe
+      if (formData.photo) {
+        candidateFormData.append('photo', formData.photo);
       }
 
-      console.log('📤 Envoi candidat:', candidateData);
+      console.log('📤 Envoi candidat avec photo...');
 
-      const response = await candidatesAPI.create(candidateData);
+      const response = await candidatesAPI.create(candidateFormData);
       console.log('✅ Réponse:', response.data);
       
       success('Candidat créé!', 'Le candidat a été ajouté avec succès à l\'élection.');
       
+      // Reset form
       setFormData({
         name: '',
         party: '',
         program: '',
-        photo: '',
+        photo: null,
         election: '',
       });
+      setPhotoPreview(null);
       setShowAddModal(false);
       
       if (selectedElection) {
@@ -139,6 +184,7 @@ const CandidatesPage = () => {
       const errorMsg = err.response?.data?.name?.[0]
         || err.response?.data?.election?.[0]
         || err.response?.data?.order?.[0]
+        || err.response?.data?.photo?.[0]
         || err.response?.data?.detail
         || err.response?.data?.message
         || JSON.stringify(err.response?.data)
@@ -148,23 +194,25 @@ const CandidatesPage = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce candidat?')) return;
+  const handleDelete = async () => {
+  if (!deleteDialog.candidateId) return;
 
-    try {
-      await candidatesAPI.delete(id);
-      success('Candidat supprimé!', 'Le candidat a été supprimé avec succès.');
-      
-      if (selectedElection) {
-        loadCandidatesByElection(selectedElection);
-      } else {
-        loadCandidates();
-      }
-    } catch (err) {
-      console.error('❌ Erreur:', err);
-      showError('Erreur de suppression', 'Impossible de supprimer le candidat.');
+  try {
+    await candidatesAPI.delete(deleteDialog.candidateId);
+    success('Candidat supprimé!', 'Le candidat a été supprimé avec succès.');
+    
+    if (selectedElection) {
+      loadCandidatesByElection(selectedElection);
+    } else {
+      loadCandidates();
     }
-  };
+  } catch (err) {
+    console.error('❌ Erreur:', err);
+    showError('Erreur de suppression', 'Impossible de supprimer le candidat.');
+  } finally {
+    setDeleteDialog({ isOpen: false, candidateId: null, candidateName: '' });
+  }
+};
 
   const handleEdit = (id) => {
     showError('Fonctionnalité indisponible', 'La modification sera bientôt disponible.');
@@ -189,14 +237,14 @@ const CandidatesPage = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <Button 
-                  variant="ghost" 
-                  size="sm"
-                  className="text-blue-600 hover:text-blue-800"
-                  onClick={() => navigate('/admin/dashboard')}
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Retour
-                </Button>
+                variant="ghost" 
+                size="sm"
+                className="text-blue-600 hover:text-blue-800"
+                onClick={() => navigate('/admin/dashboard')}
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Retour
+              </Button>
               <div>
                 <h1 className="text-xl font-semibold">Gestion des Candidats</h1>
                 <p className="text-sm text-gray-600">Assignez des candidats aux élections et gérez leurs informations</p>
@@ -296,7 +344,7 @@ const CandidatesPage = () => {
                   className="border-2 border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-all"
                 >
                   <div className="flex items-start space-x-4">
-                    <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                    <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
                       {candidate.photo ? (
                         <img
                           src={candidate.photo}
@@ -309,8 +357,12 @@ const CandidatesPage = () => {
                     </div>
                     <div className="flex-1">
                       <h4 className="font-semibold text-lg">{candidate.name}</h4>
-                      <p className="text-sm text-gray-600 mb-2">{candidate.party || 'Indépendant'}</p>
-                      <p className="text-sm text-gray-700 mb-3">{candidate.program || 'Pas de programme'}</p>
+                      <p className="text-sm text-gray-600 mb-2">
+                        {candidate.party || 'Profession non renseignée'}
+                      </p>
+                      <p className="text-sm text-gray-700 mb-3 line-clamp-2">
+                        {candidate.program || 'Aucune description'}
+                      </p>
                       <p className="text-xs text-gray-500 mb-2">
                         Élection: {candidate.election_title}
                       </p>
@@ -327,7 +379,11 @@ const CandidatesPage = () => {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => handleDelete(candidate.id)}
+                          onClick={() => setDeleteDialog({ 
+                            isOpen: true, 
+                            candidateId: candidate.id, 
+                            candidateName: candidate.name 
+                          })}
                           className="text-red-600 hover:text-red-700 hover:bg-red-50"
                           disabled={isElectionLocked}
                         >
@@ -346,20 +402,19 @@ const CandidatesPage = () => {
         {/* Back Button */}
         <div className="mt-6 text-center">
           <Button
-  variant="ghost"
-  className="bg-blue-500 text-white hover:bg-blue-600"
-  onClick={() => navigate('/admin/dashboard')}
->
-  <ArrowLeft className="w-4 h-4 mr-2" />
-  Retour au tableau de bord
-</Button>
-
+            variant="ghost"
+            className="bg-blue-500 text-white hover:bg-blue-600"
+            onClick={() => navigate('/admin/dashboard')}
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Retour au tableau de bord
+          </Button>
         </div>
       </div>
 
       {/* Add Candidate Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <Card className="max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">Ajouter un Nouveau Candidat</h2>
             
@@ -396,35 +451,75 @@ const CandidatesPage = () => {
                 required
               />
 
+              {/* ✅ MODIFIÉ: Profession au lieu de Parti */}
               <Input
                 name="party"
-                label="Parti politique"
-                placeholder="Ex: Parti Moderne"
+                label="Profession / Poste actuel"
+                placeholder="Ex: Directeur Général, Entrepreneur, Professeur..."
                 value={formData.party}
                 onChange={handleChange}
               />
 
+              {/* ✅ MODIFIÉ: Description au lieu de Programme */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Programme électoral
+                  Description & Objectifs
                 </label>
                 <textarea
                   name="program"
                   rows="4"
                   className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="Décrivez le programme du candidat..."
+                  placeholder="Décrivez le parcours du candidat et ses objectifs..."
                   value={formData.program}
                   onChange={handleChange}
                 />
               </div>
 
-              <Input
-                name="photo"
-                label="URL de la photo (optionnel)"
-                placeholder="https://example.com/photo.jpg"
-                value={formData.photo}
-                onChange={handleChange}
-              />
+              {/* ✅ NOUVEAU: Upload de photo */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Photo du candidat
+                </label>
+                
+                {!photoPreview ? (
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/jpg"
+                      onChange={handlePhotoChange}
+                      className="hidden"
+                      id="photo-upload"
+                    />
+                    <label
+                      htmlFor="photo-upload"
+                      className="cursor-pointer flex flex-col items-center"
+                    >
+                      <Upload className="w-12 h-12 text-gray-400 mb-2" />
+                      <p className="text-sm text-gray-600 mb-1">
+                        Cliquez pour télécharger une photo
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        JPG, PNG - Max 5 MB
+                      </p>
+                    </label>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <img
+                      src={photoPreview}
+                      alt="Prévisualisation"
+                      className="w-full h-48 object-cover rounded-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRemovePhoto}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
 
               <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
                 <Button
@@ -436,9 +531,10 @@ const CandidatesPage = () => {
                       name: '',
                       party: '',
                       program: '',
-                      photo: '',
+                      photo: null,
                       election: '',
                     });
+                    setPhotoPreview(null);
                   }}
                 >
                   Annuler
@@ -452,6 +548,33 @@ const CandidatesPage = () => {
           </Card>
         </div>
       )}
+       {/* ✅ AlertDialog de suppression */}
+      <AlertDialog 
+        open={deleteDialog.isOpen} 
+        onOpenChange={(open) => setDeleteDialog({ isOpen: open, candidateId: null, candidateName: '' })}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader className="items-center">
+            <div className="bg-red-100 mx-auto mb-2 flex size-12 items-center justify-center rounded-full">
+              <TriangleAlert className="text-red-600 size-6" />
+            </div>
+            <AlertDialogTitle>Supprimer ce candidat ?</AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              Cette action ne peut pas être annulée. Cela supprimera définitivement le candidat
+              <strong> {deleteDialog.candidateName}</strong> de cette élection.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-red-600 hover:bg-red-700 focus-visible:ring-red-600"
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>      
     </div>
   );
 };

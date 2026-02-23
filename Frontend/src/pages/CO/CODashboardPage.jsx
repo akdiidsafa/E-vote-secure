@@ -501,7 +501,8 @@ const CODashboardPage = () => {
 
     try {
       console.log('🔓 Déchiffrement PGP de M1...');
-      
+
+      // 1. Récupérer la clé privée CO
       const keysResponse = await electionsAPI.getPrivateKeys(vote.election_id);
       const { co_private_key } = keysResponse.data;
 
@@ -520,7 +521,7 @@ const CODashboardPage = () => {
       console.log('✅ M1 déchiffré avec PGP');
 
       const identityData = JSON.parse(decryptedText);
-      
+
       console.log('📋 Identité déchiffrée:', identityData);
 
       setDecryptedIdentity({
@@ -534,7 +535,7 @@ const CODashboardPage = () => {
 
     } catch (error) {
       console.error('❌ Erreur de déchiffrement PGP:', error);
-      
+
       setDecryptedIdentity({
         voter_id: '***',
         voter_name: 'Erreur de déchiffrement PGP',
@@ -641,7 +642,9 @@ const CODashboardPage = () => {
                 <Shield className="w-6 h-6 text-white" />
               </div>
               <div>
+
                 <h1 className="text-xl font-semibold">Centre de Comptage (CO)</h1>
+
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -676,7 +679,7 @@ const CODashboardPage = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-6 mb-6">
+        {/* <div className="grid grid-cols-3 gap-6 mb-6">
           <Card>
             <p className="text-sm text-gray-600 mb-1">En attente</p>
             <p className="text-3xl font-bold text-yellow-600">{pendingVotes.length}</p>
@@ -689,7 +692,7 @@ const CODashboardPage = () => {
             <p className="text-sm text-gray-600 mb-1">Rejetés aujourd'hui</p>
             <p className="text-3xl font-bold text-red-600">0</p>
           </Card>
-        </div>
+        </div> */}
 
         {/* Votes List */}
         {pendingVotes.length === 0 ? (
@@ -749,7 +752,7 @@ const CODashboardPage = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <Card className="max-w-2xl w-full max-h-[80vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">Vérification d'identité - Vote #{selectedVote.id}</h2>
-            
+
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
               <h3 className="font-semibold text-blue-900 mb-2 flex items-center">
                 <Shield className="w-5 h-5 mr-2" />

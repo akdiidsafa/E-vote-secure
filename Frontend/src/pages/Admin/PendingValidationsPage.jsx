@@ -1,6 +1,8 @@
+
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, CheckCircle as CheckCircleIcon, XCircle as XCircleIcon , User, Mail } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle, XCircle, User, Mail } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
@@ -45,34 +47,34 @@ const PendingValidationsPage = () => {
   };
 
   const handleApprove = async () => {
-  if (!approveDialog.invitationId) return;
+    if (!approveDialog.invitationId) return;
 
-  try {
-    await invitationsAPI.validate(approveDialog.invitationId, 'approve');
-    success('Demande approuvée!', 'Les identifiants ont été envoyés au votant par email.');
-    loadPendingInvitations();
-  } catch (err) {
-    console.error('❌ Erreur:', err);
-    showError('Erreur de validation', 'Impossible de traiter la demande');
-  } finally {
-    setApproveDialog({ isOpen: false, invitationId: null, voterName: '' });
-  }
-};
+    try {
+      await invitationsAPI.validate(approveDialog.invitationId, 'approve');
+      success('Demande approuvée!', 'Les identifiants ont été envoyés au votant par email.');
+      loadPendingInvitations();
+    } catch (err) {
+      console.error('❌ Erreur:', err);
+      showError('Erreur de validation', 'Impossible de traiter la demande');
+    } finally {
+      setApproveDialog({ isOpen: false, invitationId: null, voterName: '' });
+    }
+  };
 
-const handleReject = async () => {
-  if (!rejectDialog.invitationId) return;
+  const handleReject = async () => {
+    if (!rejectDialog.invitationId) return;
 
-  try {
-    await invitationsAPI.validate(rejectDialog.invitationId, 'reject');
-    success('Demande rejetée', 'Le votant a été notifié du rejet.');
-    loadPendingInvitations();
-  } catch (err) {
-    console.error('❌ Erreur:', err);
-    showError('Erreur de validation', 'Impossible de traiter la demande');
-  } finally {
-    setRejectDialog({ isOpen: false, invitationId: null, voterName: '' });
-  }
-};
+    try {
+      await invitationsAPI.validate(rejectDialog.invitationId, 'reject');
+      success('Demande rejetée', 'Le votant a été notifié du rejet.');
+      loadPendingInvitations();
+    } catch (err) {
+      console.error('❌ Erreur:', err);
+      showError('Erreur de validation', 'Impossible de traiter la demande');
+    } finally {
+      setRejectDialog({ isOpen: false, invitationId: null, voterName: '' });
+    }
+  };
 
   if (loading) {
     return (
@@ -94,7 +96,7 @@ const handleReject = async () => {
               className="text-blue-600 hover:text-blue-800"
               onClick={() => navigate('/admin/dashboard')}
             >
-               <ArrowLeft className="w-4 h-4 mr-2" />
+              <ArrowLeft className="w-4 h-4 mr-2" />
               Retour
             </Button>
             <div>
@@ -153,36 +155,37 @@ const handleReject = async () => {
 
                   <div className="flex space-x-2">
                     <Button
-                    variant="success"
-                    size="sm"
-                    onClick={() => setApproveDialog({ 
-                      isOpen: true, 
-                      invitationId: invitation.id, 
-                      voterName: invitation.full_name 
+                      variant="success"
+                      size="sm"
+                      onClick={() => setApproveDialog({ 
+                        isOpen: true, 
+                        invitationId: invitation.id, 
+                        voterName: invitation.full_name 
                       })}
-              >
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Approuver
-              </Button>
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={() => setRejectDialog({ 
-                  isOpen: true, 
-                  invitationId: invitation.id, 
-                  voterName: invitation.full_name 
-                })}
-              >
-                <XCircle className="w-4 h-4 mr-2" />
-                Rejeter
-              </Button>
-            </div>
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Approuver
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => setRejectDialog({ 
+                        isOpen: true, 
+                        invitationId: invitation.id, 
+                        voterName: invitation.full_name 
+                      })}
+                    >
+                      <XCircle className="w-4 h-4 mr-2" />
+                      Rejeter
+                    </Button>
+                  </div>
                 </div>
               </Card>
             ))}
           </div>
         )}
       </div>
+
       {/* ✅ AlertDialog: Approuver */}
       <AlertDialog 
         open={approveDialog.isOpen} 
@@ -191,7 +194,7 @@ const handleReject = async () => {
         <AlertDialogContent>
           <AlertDialogHeader className="items-center">
             <div className="bg-green-100 mx-auto mb-2 flex size-12 items-center justify-center rounded-full">
-              <CheckCircleIcon className="text-green-600 size-6" />
+              <CheckCircle className="text-green-600 size-6" />
             </div>
             <AlertDialogTitle>Approuver cette demande ?</AlertDialogTitle>
             <AlertDialogDescription className="text-center">
@@ -220,7 +223,7 @@ const handleReject = async () => {
         <AlertDialogContent>
           <AlertDialogHeader className="items-center">
             <div className="bg-red-100 mx-auto mb-2 flex size-12 items-center justify-center rounded-full">
-              <XCircleIcon className="text-red-600 size-6" />
+              <XCircle className="text-red-600 size-6" />
             </div>
             <AlertDialogTitle>Rejeter cette demande ?</AlertDialogTitle>
             <AlertDialogDescription className="text-center">
@@ -243,7 +246,5 @@ const handleReject = async () => {
     </div>
   );
 };
-
-
 
 export default PendingValidationsPage;

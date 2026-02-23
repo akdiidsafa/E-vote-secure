@@ -1,3 +1,5 @@
+
+
 from rest_framework import serializers
 from .models import Vote, DecryptedBallot, VoteReceipt
 from candidates.models import Candidate
@@ -25,27 +27,73 @@ class VoteSubmitSerializer(serializers.Serializer):
 class VoteSerializer(serializers.ModelSerializer):
     """
     Serializer for Vote model
+    ✅ CORRIGÉ: Utilisation de SerializerMethodField pour voter_full_name
     """
+    # Informations du votant depuis la relation
     voter_username = serializers.CharField(source='voter.username', read_only=True)
-    voter_name = serializers.SerializerMethodField()
+    voter_email = serializers.EmailField(source='voter.email', read_only=True)
+    voter_first_name = serializers.CharField(source='voter.first_name', read_only=True)
+    voter_last_name = serializers.CharField(source='voter.last_name', read_only=True)
+    
+    # ✅ CORRIGÉ: SerializerMethodField au lieu de CharField avec source
+    voter_full_name = serializers.SerializerMethodField()
+    
+    # Informations de l'élection
     election_title = serializers.CharField(source='election.title', read_only=True)
+    
+    # PDF M2
+    m2_pdf_url = serializers.SerializerMethodField()
     
     class Meta:
         model = Vote
         fields = [
-            'id', 'election', 'election_title', 'voter', 'voter_username',
-            'voter_name', 'm1_identity', 'm2_ballot', 'unique_id',
-            'status', 'submitted_at', 'verified_by_co',
-            'co_verification_date', 'co_notes'
+            'id',
+            'election',
+            'election_title',
+            'voter',
+            'voter_username',
+            'voter_email',
+            'voter_full_name',
+            'voter_first_name',
+            'voter_last_name',
+            'm1_identity',
+            'm2_ballot',
+            'unique_id',
+            'linking_id',
+            'status',
+            'submitted_at',
+            'co_verified_at',
+            'co_verified_by',
+            'de_verified_at',
+            'de_verified_by',
+            'm2_pdf',
+            'm2_pdf_url',
         ]
         read_only_fields = [
-            'id', 'submitted_at', 'verified_by_co',
-            'co_verification_date'
+            'id',
+            'submitted_at',
+            'co_verified_at',
+            'de_verified_at',
         ]
     
-    def get_voter_name(self, obj):
-        """Return full name of voter"""
-        return f"{obj.voter.first_name} {obj.voter.last_name}".strip() or obj.voter.username
+    def get_voter_full_name(self, obj):
+        """
+        Retourne le nom complet du votant
+        ✅ NOUVEAU: Méthode pour générer voter_full_name
+        """
+        if obj.voter:
+            if obj.voter.first_name and obj.voter.last_name:
+                return f"{obj.voter.first_name} {obj.voter.last_name}"
+            return obj.voter.username
+        return "Anonyme"
+    
+    def get_m2_pdf_url(self, obj):
+        """
+        Retourne l'URL du PDF M2 si disponible
+        """
+        if obj.m2_pdf:
+            return obj.m2_pdf.url
+        return None
 
 
 class COVoteVerificationSerializer(serializers.Serializer):
@@ -55,11 +103,6 @@ class COVoteVerificationSerializer(serializers.Serializer):
     vote_id = serializers.IntegerField()
     action = serializers.ChoiceField(choices=['approve', 'reject'])
     notes = serializers.CharField(required=False, allow_blank=True)
-    
-    # This would contain the decrypted identity (for CO's verification only)
-    # In production, this decryption would happen server-side with CO's private key
-    # For now, we'll handle this as a comment/placeholder
-    # decrypted_identity = serializers.JSONField(required=False)
 
 
 class DecryptedBallotSerializer(serializers.ModelSerializer):
@@ -72,8 +115,13 @@ class DecryptedBallotSerializer(serializers.ModelSerializer):
     class Meta:
         model = DecryptedBallot
         fields = [
-            'id', 'election', 'election_title', 'candidate',
-            'candidate_name', 'unique_id', 'decrypted_by',
+            'id',
+            'election',
+            'election_title',
+            'candidate',
+            'candidate_name',
+            'unique_id',
+            'decrypted_by',
             'decrypted_at'
         ]
         read_only_fields = ['id', 'decrypted_at', 'decrypted_by']
@@ -102,7 +150,10 @@ class VoteReceiptSerializer(serializers.ModelSerializer):
     class Meta:
         model = VoteReceipt
         fields = [
-            'id', 'vote', 'receipt_code', 'election_title',
+            'id',
+            'vote',
+            'receipt_code',
+            'election_title',
             'created_at'
         ]
         read_only_fields = ['id', 'created_at']

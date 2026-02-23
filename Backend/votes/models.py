@@ -1,3 +1,5 @@
+
+
 from django.db import models
 from django.contrib.auth import get_user_model
 from elections.models import Election
@@ -53,7 +55,7 @@ class Vote(models.Model):
         verbose_name="ID Unique"
     )
     
-    # ✅ NOUVEAU: Hash de liaison pour vérifier l'intégrité
+    # Linking ID pour vérifier l'intégrité
     linking_id = models.CharField(
         max_length=64,
         blank=True,
@@ -94,6 +96,14 @@ class Vote(models.Model):
         related_name='de_verified_votes'
     )
     
+    # ✅ NOUVEAU: PDF M2 généré par CO
+    m2_pdf = models.FileField(
+        upload_to='votes/m2_pdfs/',
+        null=True,
+        blank=True,
+        verbose_name="PDF M2"
+    )
+    
     class Meta:
         ordering = ['-submitted_at']
         verbose_name = 'Vote'
@@ -101,6 +111,24 @@ class Vote(models.Model):
     
     def __str__(self):
         return f"Vote {self.unique_id} - {self.election.title}"
+    
+    # ✅ NOUVEAU: Propriétés utiles
+    @property
+    def voter_full_name(self):
+        """Nom complet du votant"""
+        if self.voter.first_name and self.voter.last_name:
+            return f"{self.voter.first_name} {self.voter.last_name}"
+        return self.voter.username
+    
+    @property
+    def is_pending_co(self):
+        """Vote en attente de validation CO"""
+        return self.status == 'pending_co'
+    
+    @property
+    def is_approved_co(self):
+        """Vote approuvé par CO"""
+        return self.status in ['pending_de', 'counted']
 
 
 class DecryptedBallot(models.Model):

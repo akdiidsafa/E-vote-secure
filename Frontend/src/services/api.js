@@ -1,317 +1,4 @@
 
-// // import axios from 'axios';
-
-// // const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-
-// // // Create axios instance
-// // const api = axios.create({
-// //   baseURL: API_BASE_URL,
-// //   headers: {
-// //     'Content-Type': 'application/json',
-// //   },
-// // });
-
-// // // Add token to requests
-// // api.interceptors.request.use(
-// //   (config) => {
-// //     const token = localStorage.getItem('token');
-// //     if (token) {
-// //       config.headers.Authorization = `Bearer ${token}`;
-// //     }
-// //     return config;
-// //   },
-// //   (error) => {
-// //     return Promise.reject(error);
-// //   }
-// // );
-
-// // // Handle token expiration
-// // api.interceptors.response.use(
-// //   (response) => response,
-// //   (error) => {
-// //     if (error.response?.status === 401) {
-// //       localStorage.removeItem('token');
-// //       localStorage.removeItem('user');
-// //       window.location.href = '/login';
-// //     }
-// //     return Promise.reject(error);
-// //   }
-// // );
-
-// // // Authentication API
-// // export const authAPI = {
-// //   login: (credentials) => api.post('/auth/login/', credentials),
-// //   register: (userData) => api.post('/auth/register/', userData),
-// //   logout: (refreshToken) => api.post('/auth/logout/', { refresh: refreshToken }),
-// //   getCurrentUser: () => api.get('/auth/me/'),
-// //   changePassword: (passwordData) => api.post('/auth/change-password/', passwordData),
-// // };
-
-// // // Users API
-// // export const usersAPI = {
-// //   getAll: () => api.get('/auth/users/'),
-// //   getById: (id) => api.get(`/auth/users/${id}/`),
-// //   create: (data) => api.post('/auth/register/', data), 
-// //   update: (id, data) => api.put(`/auth/users/${id}/`, data),
-// //   delete: (id) => api.delete(`/auth/users/${id}/`),
-// // };
-
-// // // Elections API
-// // export const electionsAPI = {
-// //   getAll: (params) => api.get('/elections/', { params }),
-// //   getById: (id) => api.get(`/elections/${id}/`),
-// //   create: (data) => api.post('/elections/', data),
-// //   update: (id, data) => api.put(`/elections/${id}/`, data),
-// //   delete: (id) => api.delete(`/elections/${id}/`),
-// //   open: (id) => api.post(`/elections/${id}/open/`),
-// //   close: (id) => api.post(`/elections/${id}/close/`),
-// //   getStats: (id) => api.get(`/elections/${id}/stats/`),
-// //   getPublicKeys: (id) => api.get(`/elections/${id}/public_keys/`),
-// //   getPrivateKeys: (id) => api.get(`/elections/${id}/private_keys/`),  // ← AJOUTÉ
-// //   assignVoters: (electionId, voterIds) => {
-// //     return api.post('/elections/assign-voters/', {
-// //       election_id: electionId,
-// //       voter_ids: voterIds
-// //     });
-// //   },
-// //   getVoters: (id) => api.get(`/elections/${id}/voters/`),
-// // };
-
-// // // Candidates API
-// // export const candidatesAPI = {
-// //   getAll: (params) => api.get('/candidates/', { params }),
-// //   getById: (id) => api.get(`/candidates/${id}/`),
-// //   create: (data) => api.post('/candidates/', data),
-// //   update: (id, data) => api.put(`/candidates/${id}/`, data),
-// //   delete: (id) => api.delete(`/candidates/${id}/`),
-// //   getByElection: (electionId) => api.get(`/candidates/election/${electionId}/`),
-// // };
-
-// // // Votes API
-// // export const votesAPI = {
-// //   submit: (voteData) => api.post('/votes/submit/', voteData),
-// //   create: (voteData) => api.post('/votes/submit/', voteData), 
-// //   getMyVoteStatus: (electionId) => api.get('/votes/my-vote/', { params: { election_id: electionId } }),
-// //   verifyReceipt: (receiptCode) => api.get('/votes/receipt/', { params: { code: receiptCode } }),
-  
-// //   // CO endpoints
-// //   getPendingVotes: () => api.get('/votes/co/pending/'),
-// //   verifyVote: (data) => api.post('/votes/co/verify/', data),
-  
-// //   // DE endpoints
-// //   getPendingBallots: (electionId) => api.get('/votes/de/pending/', { params: { election_id: electionId } }),
-// //   decryptBallot: (data) => api.post('/votes/de/decrypt/', data),
-// //   getResults: (electionId) => api.get(`/votes/de/results/${electionId}/`),
-// //   //PDF
-// //   downloadM1PDF: (voteId) => {
-// //     return api.get(`/votes/${voteId}/download-m1/`, {
-// //       responseType: 'blob'
-// //     });
-// //   },
-// //   downloadM2PDF: (voteId) => {
-// //     return api.get(`/votes/${voteId}/download-m2/`, {
-// //       responseType: 'blob'
-// //     });
-// //   },
-// // };
-
-// // // Results API
-// // export const resultsAPI = {
-// //   calculate: (electionId) => api.post(`/results/calculate/${electionId}/`),
-// //   publish: (electionId) => api.post(`/results/publish/${electionId}/`),
-// //   getByElection: (electionId) => api.get(`/results/${electionId}/`),
-// //   getPublished: () => api.get('/results/'),
-// // };
-
-// // // Invitations API
-// // export const invitationsAPI = {
-// //   getAll: () => api.get('/auth/invitations/'),
-// //   getByToken: (token) => api.get(`/auth/voter/invitation/${token}/`),
-// //   create: (data) => api.post('/auth/invitations/', data),
-  
-// //   // Votant
-// //   register: (data) => api.post('/auth/voter/register/', data),
-  
-// //   // Admin
-// //   getPending: () => api.get('/auth/admin/pending-invitations/'),
-// //   validate: (invitationId, action) => api.post('/auth/admin/validate-voter/', {
-// //     invitation_id: invitationId,
-// //     action: action  // 'approve' or 'reject'
-// //   }),
-// // };
-
-// // // Profile API
-// // export const profileAPI = {
-// //   get: () => api.get('/auth/profile/'),
-// //   update: (data) => api.put('/auth/profile/', data),
-// // };
-
-// // export default api;
-// import axios from 'axios';
-
-// const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-
-// // Create axios instance
-// const api = axios.create({
-//   baseURL: API_BASE_URL,
-//   headers: {
-//     'Content-Type': 'application/json',
-//   },
-// });
-
-// // Add token to requests
-// api.interceptors.request.use(
-//   (config) => {
-//     const token = localStorage.getItem('token');
-//     if (token) {
-//       config.headers.Authorization = `Bearer ${token}`;
-//     }
-//     return config;
-//   },
-//   (error) => {
-//     return Promise.reject(error);
-//   }
-// );
-
-// // Handle token expiration
-// api.interceptors.response.use(
-//   (response) => response,
-//   (error) => {
-//     if (error.response?.status === 401) {
-//       localStorage.removeItem('token');
-//       localStorage.removeItem('user');
-//       window.location.href = '/login';
-//     }
-//     return Promise.reject(error);
-//   }
-// );
-
-// // Authentication API
-// export const authAPI = {
-//   login: (credentials) => api.post('/auth/login/', credentials),
-//   register: (userData) => api.post('/auth/register/', userData),
-//   logout: (refreshToken) => api.post('/auth/logout/', { refresh: refreshToken }),
-//   getCurrentUser: () => api.get('/auth/me/'),
-//   changePassword: (passwordData) => api.post('/auth/change-password/', passwordData),
-// };
-
-// // Users API
-// export const usersAPI = {
-//   getAll: () => api.get('/auth/users/'),
-//   getById: (id) => api.get(`/auth/users/${id}/`),
-//   create: (data) => api.post('/auth/register/', data), 
-//   update: (id, data) => api.put(`/auth/users/${id}/`, data),
-//   delete: (id) => api.delete(`/auth/users/${id}/`),
-// };
-
-// // Elections API
-// export const electionsAPI = {
-//   getAll: (params) => api.get('/elections/', { params }),
-//   getById: (id) => api.get(`/elections/${id}/`),
-//   create: (data) => api.post('/elections/', data),
-//   update: (id, data) => api.put(`/elections/${id}/`, data),
-//   delete: (id) => api.delete(`/elections/${id}/`),
-//   open: (id) => api.post(`/elections/${id}/open/`),
-//   close: (id) => api.post(`/elections/${id}/close/`),
-//   getStats: (id) => api.get(`/elections/${id}/stats/`),
-//   getPublicKeys: (id) => api.get(`/elections/${id}/public_keys/`),
-//   getPrivateKeys: (id) => api.get(`/elections/${id}/private_keys/`),
-//   assignVoters: (electionId, voterIds) => {
-//     return api.post('/elections/assign-voters/', {
-//       election_id: electionId,
-//       voter_ids: voterIds
-//     });
-//   },
-//   getVoters: (id) => api.get(`/elections/${id}/voters/`),
-// };
-
-// // Candidates API
-// export const candidatesAPI = {
-//   getAll: (params) => api.get('/candidates/', { params }),
-//   getById: (id) => api.get(`/candidates/${id}/`),
-//   create: (data) => api.post('/candidates/', data),
-//   update: (id, data) => api.put(`/candidates/${id}/`, data),
-//   delete: (id) => api.delete(`/candidates/${id}/`),
-//   getByElection: (electionId) => api.get(`/candidates/election/${electionId}/`),
-// };
-
-// // Votes API
-// export const votesAPI = {
-//   // Votant
-//   submit: (voteData) => api.post('/votes/submit/', voteData),
-//   create: (voteData) => api.post('/votes/submit/', voteData), 
-//   getMyVoteStatus: (electionId) => api.get('/votes/my-vote/', { params: { election_id: electionId } }),
-//   verifyReceipt: (receiptCode) => api.get('/votes/receipt/', { params: { code: receiptCode } }),
-  
-//   // ✅ CO endpoints (CORRIGÉ)
-//   getPendingCO: () => api.get('/votes/co/pending/'),
-//   verifyCO: (data) => api.post('/votes/co/verify/', data),
-  
-//   // Anciens noms (pour compatibilité)
-//   getPendingVotes: () => api.get('/votes/co/pending/'),
-//   verifyVote: (data) => api.post('/votes/co/verify/', data),
-  
-//   // ✅ DE endpoints (CORRIGÉ)
-//   getPendingDE: (electionId) => {
-//     if (electionId) {
-//       return api.get('/votes/de/pending/', { params: { election_id: electionId } });
-//     }
-//     return api.get('/votes/de/pending/');
-//   },
-//   decryptDE: (data) => api.post('/votes/de/decrypt/', data),
-  
-//   // Anciens noms (pour compatibilité)
-//   getPendingBallots: (electionId) => api.get('/votes/de/pending/', { params: { election_id: electionId } }),
-//   decryptBallot: (data) => api.post('/votes/de/decrypt/', data),
-  
-//   // Résultats
-//   getResults: (electionId) => api.get(`/votes/de/results/${electionId}/`),
-  
-//   // ✅ PDF Downloads
-//   downloadM1PDF: (voteId) => {
-//     return api.get(`/votes/${voteId}/download-m1/`, {
-//       responseType: 'blob'
-//     });
-//   },
-//   downloadM2PDF: (voteId) => {
-//     return api.get(`/votes/${voteId}/download-m2/`, {
-//       responseType: 'blob'
-//     });
-//   },
-// };
-
-// // Results API
-// export const resultsAPI = {
-//   calculate: (electionId) => api.post(`/results/calculate/${electionId}/`),
-//   publish: (electionId) => api.post(`/results/publish/${electionId}/`),
-//   getByElection: (electionId) => api.get(`/results/${electionId}/`),
-//   getPublished: () => api.get('/results/'),
-// };
-
-// // Invitations API
-// export const invitationsAPI = {
-//   getAll: () => api.get('/auth/invitations/'),
-//   getByToken: (token) => api.get(`/auth/voter/invitation/${token}/`),
-//   create: (data) => api.post('/auth/invitations/', data),
-  
-//   // Votant
-//   register: (data) => api.post('/auth/voter/register/', data),
-  
-//   // Admin
-//   getPending: () => api.get('/auth/admin/pending-invitations/'),
-//   validate: (invitationId, action) => api.post('/auth/admin/validate-voter/', {
-//     invitation_id: invitationId,
-//     action: action  // 'approve' or 'reject'
-//   }),
-// };
-
-// // Profile API
-// export const profileAPI = {
-//   get: () => api.get('/auth/profile/'),
-//   update: (data) => api.put('/auth/profile/', data),
-// };
-
-// export default api;
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
@@ -390,14 +77,12 @@ export const electionsAPI = {
   getVoters: (id) => api.get(`/elections/${id}/voters/`),
 };
 
-// ✅ Candidates API (MODIFIÉ pour supporter FormData)
+// Candidates API (avec support FormData)
 export const candidatesAPI = {
   getAll: (params) => api.get('/candidates/', { params }),
   getById: (id) => api.get(`/candidates/${id}/`),
   
-  // ✅ MODIFIÉ: Supporter FormData pour l'upload de fichiers
   create: (data) => {
-    // Si c'est FormData, utiliser multipart/form-data
     if (data instanceof FormData) {
       return api.post('/candidates/', data, {
         headers: {
@@ -405,13 +90,43 @@ export const candidatesAPI = {
         },
       });
     }
-    // Sinon, envoyer en JSON normal
     return api.post('/candidates/', data);
   },
   
   update: (id, data) => api.put(`/candidates/${id}/`, data),
   delete: (id) => api.delete(`/candidates/${id}/`),
   getByElection: (electionId) => api.get(`/candidates/election/${electionId}/`),
+};
+
+// ✅ NOUVEAU: CO API (Modern)
+export const coAPI = {
+  // Récupérer tous les votes d'une élection
+  getElectionVotes: (electionId) => api.get(`/votes/co/election/${electionId}/`),
+  
+  // Approuver un vote (génère le PDF M2 automatiquement)
+  approveVote: (voteId) => api.post('/votes/co/approve/', { vote_id: voteId }),
+  
+  // Rejeter un vote
+  rejectVote: (voteId, reason = '') => api.post('/votes/co/reject/', { 
+    vote_id: voteId, 
+    reason: reason 
+  }),
+  
+  // Télécharger le PDF M2 d'un vote approuvé
+  downloadM2PDF: (voteId) => {
+    return api.get(`/votes/co/${voteId}/download-m2/`, {
+      responseType: 'blob'
+    });
+  },
+  
+  // ANCIEN: Liste des votes en attente (compatibilité)
+  getPending: () => api.get('/votes/co/pending/'),
+  
+  // ANCIEN: Vérifier un vote (compatibilité)
+  verify: (voteId, action) => api.post('/votes/co/verify/', {
+    vote_id: voteId,
+    action: action
+  }),
 };
 
 // Votes API
@@ -422,7 +137,7 @@ export const votesAPI = {
   getMyVoteStatus: (electionId) => api.get('/votes/my-vote/', { params: { election_id: electionId } }),
   verifyReceipt: (receiptCode) => api.get('/votes/receipt/', { params: { code: receiptCode } }),
   
-  // CO endpoints
+  // CO endpoints (ANCIENS - pour compatibilité avec CODashboardPage actuel)
   getPendingCO: () => api.get('/votes/co/pending/'),
   verifyCO: (data) => api.post('/votes/co/verify/', data),
   
@@ -480,7 +195,7 @@ export const invitationsAPI = {
   getPending: () => api.get('/auth/admin/pending-invitations/'),
   validate: (invitationId, action) => api.post('/auth/admin/validate-voter/', {
     invitation_id: invitationId,
-    action: action  // 'approve' or 'reject'
+    action: action
   }),
 };
 

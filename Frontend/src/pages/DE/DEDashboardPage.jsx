@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calculator, CheckCircle, Lock, Unlock, User, RefreshCw, BarChart3, Download } from 'lucide-react';
+import { Lock, CheckCircle, Eye, User, RefreshCw, AlertCircle, FileText } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -9,24 +8,44 @@ import Badge from '../../components/ui/Badge';
 import { votesAPI, electionsAPI } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
 import { decryptMessage } from '../../utils/crypto';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../../components/ui/AlertDialog';
 
 const DEDashboardPage = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { success, error: showError } = useNotification();
 
+  // States pour AlertDialog
+  const [countDialog, setCountDialog] = useState({ isOpen: false, voteId: null, candidateName: '' });
+
+  // States pour les élections et votes
   const [elections, setElections] = useState([]);
   const [selectedElection, setSelectedElection] = useState(null);
-  const [pendingBallots, setPendingBallots] = useState([]);
-  const [results, setResults] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [decrypting, setDecrypting] = useState(false);
-  const [showResults, setShowResults] = useState(false);
+  const [pendingVotes, setPendingVotes] = useState([]);
+  const [countedVotes, setCountedVotes] = useState([]);
+  const [stats, setStats] = useState({ total: 0, pending: 0, counted: 0 });
 
-  // États pour le modal de déchiffrement
-  const [selectedBallot, setSelectedBallot] = useState(null);
+  // States pour le modal de déchiffrement
+  const [selectedVote, setSelectedVote] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [decryptedBallot, setDecryptedBallot] = useState(null);
+  const [decrypting, setDecrypting] = useState(false);
+
+  // States pour l'onglet actif
+  const [activeTab, setActiveTab] = useState('pending');
+
+  // Loading states
+  const [loading, setLoading] = useState(true);
+  const [loadingVotes, setLoadingVotes] = useState(false);
 
   useEffect(() => {
     loadElections();
@@ -35,20 +54,18 @@ const DEDashboardPage = () => {
   const loadElections = async () => {
     try {
       setLoading(true);
-      console.log('📡 Chargement des élections...');
-      
-      // Charger toutes les élections
       const response = await electionsAPI.getAll();
       const data = Array.isArray(response.data) ? response.data : response.data.results || [];
       
-      console.log('✅ Élections reçues:', data);
+      // Filtrer les élections ouvertes ou fermées
+      const activeElections = data.filter(e => ['open', 'closed'].includes(e.status));
+      setElections(activeElections);
       
-      // Filtrer les élections fermées ou avec des votes
-      const electionsWithVotes = data.filter(e =>
-        e.status === 'closed' || e.total_votes > 0
-      );
-
-      setElections(electionsWithVotes);
+      // Sélectionner automatiquement la première élection
+      if (activeElections.length > 0 && !selectedElection) {
+        setSelectedElection(activeElections[0]);
+        loadElectionVotes(activeElections[0].id);
+      }
     } catch (err) {
       console.error('❌ Erreur:', err);
       showError('Erreur de chargement', 'Impossible de charger les élections');
@@ -57,87 +74,79 @@ const DEDashboardPage = () => {
     }
   };
 
-  const loadPendingBallots = async (electionId) => {
+  const loadElectionVotes = async (electionId) => {
     try {
-      setLoading(true);
-      console.log('📡 Chargement des bulletins pour élection:', electionId);
+      setLoadingVotes(true);
+      console.log('📡 Chargement des votes pour l\'élection:', electionId);
       
+      // Récupérer les votes en attente (status='pending_de')
       const response = await votesAPI.getPendingDE(electionId);
-      const data = Array.isArray(response.data) ? response.data : [];
+      const allVotes = Array.isArray(response.data) ? response.data : [];
       
-      console.log('✅ Bulletins reçus:', data);
-      setPendingBallots(data);
+      console.log('✅ Votes reçus:', allVotes);
+      
+      // Séparer en pending et counted (on ne peut pas avoir counted via getPendingDE)
+      // On va faire une requête séparée pour les résultats
+      setPendingVotes(allVotes);
+      
+      // Charger les résultats pour avoir les votes comptés
+      try {
+        const resultsResponse = await votesAPI.getResults(electionId);
+        const results = resultsResponse.data;
+        setCountedVotes(results.results || []);
+        setStats({
+          total: allVotes.length + (results.total_counted || 0),
+          pending: allVotes.length,
+          counted: results.total_counted || 0
+        });
+      } catch (err) {
+        console.log('Pas encore de résultats');
+        setCountedVotes([]);
+        setStats({
+          total: allVotes.length,
+          pending: allVotes.length,
+          counted: 0
+        });
+      }
     } catch (err) {
       console.error('❌ Erreur:', err);
-      showError('Erreur de chargement', 'Impossible de charger les bulletins');
+      showError('Erreur de chargement', 'Impossible de charger les votes');
     } finally {
-      setLoading(false);
+      setLoadingVotes(false);
     }
   };
 
-  const loadResults = async (electionId) => {
-    try {
-      setLoading(true);
-      const response = await votesAPI.getResults(electionId);
-      setResults(response.data);
-      setShowResults(true);
-    } catch (err) {
-      console.error('❌ Erreur:', err);
-      showError('Erreur de chargement', 'Impossible de charger les résultats');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSelectElection = (election) => {
-    console.log('🔍 Élection sélectionnée:', election);
+  const handleElectionChange = (election) => {
     setSelectedElection(election);
-    setShowResults(false);
-    setResults(null);
-    loadPendingBallots(election.id);
+    setActiveTab('pending');
+    loadElectionVotes(election.id);
   };
 
-  // ✅ NOUVEAU: Télécharger M2 PDF
-  const handleDownloadM2 = async (ballot) => {
-    try {
-      console.log('📥 Téléchargement M2 PDF...');
-      const response = await votesAPI.downloadM2PDF(ballot.id);
-      
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `bulletin_vote_${ballot.id}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      
-      success('PDF téléchargé', 'Bulletin M2 téléchargé avec succès');
-    } catch (err) {
-      console.error('❌ Erreur téléchargement M2:', err);
-      showError('Erreur', 'Impossible de télécharger M2');
-    }
-  };
-
-  // ✅ MODIFIÉ: Déchiffrer avec modal
-  const handleDecryptBallot = async (ballot) => {
-    setSelectedBallot(ballot);
+  const handleViewVote = async (vote) => {
+    setSelectedVote(vote);
     setShowModal(true);
     setDecrypting(true);
     setDecryptedBallot(null);
 
     try {
-      console.log('🔓 Déchiffrement PGP de M2...');
+      console.log('🔓 Déchiffrement PGP de M2 (bulletin)...');
 
       // Récupérer la clé privée DE
-      const keysResponse = await electionsAPI.getPrivateKeys(ballot.election_id);
+      const keysResponse = await electionsAPI.getPrivateKeys(vote.election_id);
       const { de_private_key } = keysResponse.data;
+
+      if (!de_private_key) {
+        throw new Error('Clé privée DE non disponible');
+      }
 
       console.log('✅ Clé privée PGP DE récupérée');
 
       // Déchiffrer M2 avec PGP
-      const decryptedText = await decryptMessage(ballot.m2_ballot, de_private_key);
+      const decryptedText = await decryptMessage(vote.m2_ballot, de_private_key);
+
+      if (!decryptedText) {
+        throw new Error('Échec du déchiffrement PGP');
+      }
 
       console.log('✅ M2 déchiffré avec PGP');
 
@@ -153,52 +162,45 @@ const DEDashboardPage = () => {
         timestamp: ballotData.timestamp,
         encrypted: false,
       });
-    } catch (err) {
-      console.error('❌ Erreur déchiffrement:', err);
+
+    } catch (error) {
+      console.error('❌ Erreur de déchiffrement PGP:', error);
+
       setDecryptedBallot({
+        candidate_id: null,
         candidate_name: 'Erreur de déchiffrement PGP',
         encrypted: true,
-        error: err.message
+        m2_preview: vote.m2_ballot.substring(0, 100) + '...',
+        error: error.message
       });
     } finally {
       setDecrypting(false);
     }
   };
 
-  // ✅ NOUVEAU: Confirmer le déchiffrement
-  const handleConfirmDecryption = async () => {
-    if (!selectedBallot) return;
+  const handleCountVote = async () => {
+    if (!countDialog.voteId) return;
 
     try {
-      setDecrypting(true);
-      
       console.log('📤 Comptabilisation du vote...');
       
       await votesAPI.decryptDE({
-        vote_id: selectedBallot.id,
+        vote_id: countDialog.voteId
       });
 
-      success('Bulletin déchiffré!', 'Le bulletin a été déchiffré et comptabilisé');
+      success('Vote comptabilisé!', 'Le vote a été ajouté aux résultats.');
       
-      setShowModal(false);
-      setSelectedBallot(null);
-      setDecryptedBallot(null);
-      
-      // Recharger les bulletins
+      // Recharger les votes
       if (selectedElection) {
-        loadPendingBallots(selectedElection.id);
+        loadElectionVotes(selectedElection.id);
       }
     } catch (err) {
       console.error('❌ Erreur:', err);
-      showError('Erreur de déchiffrement', err.response?.data?.error || 'Impossible de déchiffrer le bulletin');
+      showError('Erreur de comptabilisation', err.response?.data?.error || 'Impossible de comptabiliser le vote');
     } finally {
-      setDecrypting(false);
-    }
-  };
-
-  const handleViewResults = () => {
-    if (selectedElection) {
-      loadResults(selectedElection.id);
+      setCountDialog({ isOpen: false, voteId: null, candidateName: '' });
+      setShowModal(false);
+      setSelectedVote(null);
     }
   };
 
@@ -207,7 +209,7 @@ const DEDashboardPage = () => {
     navigate('/login');
   };
 
-  if (loading && !selectedElection) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <p className="text-gray-600">Chargement...</p>
@@ -222,22 +224,25 @@ const DEDashboardPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
-                <Calculator className="w-6 h-6 text-white" />
+              <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
+                <Lock className="w-6 h-6 text-white" />
               </div>
               <div>
                 <h1 className="text-xl font-semibold">Centre de Dépouillement (DE)</h1>
-                {/* <Badge variant="success" className="mt-1">Decryption Entity</Badge> */}
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm" onClick={loadElections}>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => selectedElection && loadElectionVotes(selectedElection.id)}
+              >
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Actualiser
               </Button>
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                  <User className="w-4 h-4 text-green-600" />
+                <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                  <User className="w-4 h-4 text-indigo-600" />
                 </div>
                 <div className="text-left">
                   <p className="text-sm font-medium text-gray-900">{user?.username}</p>
@@ -254,341 +259,331 @@ const DEDashboardPage = () => {
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Sidebar - Elections */}
-          <div>
-            <Card>
-              <h2 className="text-lg font-semibold mb-4">Élections</h2>
-
-              {elections.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-600 text-sm">Aucune élection disponible</p>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Les élections fermées apparaîtront ici
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {elections.map((election) => (
-                    <div
-                      key={election.id}
-                      onClick={() => handleSelectElection(election)}
-                      className={`p-3 rounded-lg cursor-pointer transition-all ${selectedElection?.id === election.id
-                          ? 'bg-green-50 border-2 border-green-600'
-                          : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
-                        }`}
-                    >
-                      <p className="font-semibold text-sm">{election.title}</p>
-                      <div className="flex items-center justify-between mt-1">
-                        <Badge
-                          variant={election.status === 'closed' ? 'secondary' : 'success'}
-                          className="text-xs"
-                        >
-                          {election.status === 'closed' ? 'Fermée' : 'Ouverte'}
-                        </Badge>
-                        <p className="text-xs text-gray-600">
-                          {election.total_votes} vote(s)
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+        {/* Sélecteur d'élection */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Sélectionnez une élection</h2>
+          
+          {elections.length === 0 ? (
+            <Card className="text-center py-8">
+              <Lock className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-600">Aucune élection active disponible</p>
             </Card>
-          </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {elections.map((election) => (
+                <Card
+                  key={election.id}
+                  className={`cursor-pointer transition-all ${
+                    selectedElection?.id === election.id
+                      ? 'ring-2 ring-indigo-600 bg-indigo-50'
+                      : 'hover:shadow-lg'
+                  }`}
+                  onClick={() => handleElectionChange(election)}
+                >
+                  <h3 className="font-semibold text-lg mb-2">{election.title}</h3>
+                  <div className="flex items-center justify-between">
+                    <Badge variant={election.status === 'open' ? 'success' : 'secondary'}>
+                      {election.status === 'open' ? 'Ouverte' : 'Fermée'}
+                    </Badge>
+                    <p className="text-sm text-gray-600">
+                      {election.total_votes || 0} vote(s)
+                    </p>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
 
-          {/* Main Content */}
-          <div className="lg:col-span-2">
-            {!selectedElection ? (
-              <Card className="text-center py-12">
-                <Calculator className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">
-                  Sélectionnez une élection pour commencer le dépouillement
-                </p>
-              </Card>
-            ) : showResults ? (
-              /* Résultats */
+        {/* Votes de l'élection sélectionnée */}
+        {selectedElection && (
+          <>
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-6 mb-6">
               <Card>
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-semibold">Résultats - {selectedElection.title}</h2>
-                  <Button variant="secondary" size="sm" onClick={() => setShowResults(false)}>
-                    Retour aux bulletins
-                  </Button>
-                </div>
+                <p className="text-sm text-gray-600 mb-1">Total</p>
+                <p className="text-3xl font-bold text-blue-600">{stats.total}</p>
+              </Card>
+              <Card>
+                <p className="text-sm text-gray-600 mb-1">À dépouiller</p>
+                <p className="text-3xl font-bold text-orange-600">{stats.pending}</p>
+              </Card>
+              <Card>
+                <p className="text-sm text-gray-600 mb-1">Comptabilisés</p>
+                <p className="text-3xl font-bold text-green-600">{stats.counted}</p>
+              </Card>
+            </div>
 
-                {results && (
-                  <>
-                    {/* Stats */}
-                    <div className="grid grid-cols-3 gap-4 mb-6">
-                      <div className="bg-blue-50 p-4 rounded-lg">
-                        <p className="text-sm text-gray-600 mb-1">Votes comptés</p>
-                        <p className="text-2xl font-bold text-blue-600">{results.total_counted}</p>
-                      </div>
-                      <div className="bg-purple-50 p-4 rounded-lg">
-                        <p className="text-sm text-gray-600 mb-1">Électeurs assignés</p>
-                        <p className="text-2xl font-bold text-purple-600">{results.total_voters}</p>
-                      </div>
-                      <div className="bg-green-50 p-4 rounded-lg">
-                        <p className="text-sm text-gray-600 mb-1">Taux de participation</p>
-                        <p className="text-2xl font-bold text-green-600">
-                          {results.participation_rate ? `${results.participation_rate.toFixed(1)}%` : '0%'}
-                        </p>
-                      </div>
-                    </div>
+            {/* Tabs */}
+            <div className="mb-6">
+              <div className="border-b border-gray-200">
+                <nav className="-mb-px flex space-x-8">
+                  <button 
+                    className={`py-4 px-1 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === 'pending'
+                        ? 'border-orange-500 text-orange-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                    onClick={() => setActiveTab('pending')}
+                  >
+                    <AlertCircle className="w-4 h-4 inline mr-2" />
+                    À dépouiller ({stats.pending})
+                  </button>
+                  <button 
+                    className={`py-4 px-1 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === 'counted'
+                        ? 'border-green-500 text-green-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                    onClick={() => setActiveTab('counted')}
+                  >
+                    <CheckCircle className="w-4 h-4 inline mr-2" />
+                    Comptabilisés ({stats.counted})
+                  </button>
+                </nav>
+              </div>
+            </div>
 
-                    {/* Résultats par candidat */}
-                    <h3 className="font-semibold mb-4">Résultats par candidat</h3>
-                    {results.results && results.results.length > 0 ? (
-                      <div className="space-y-3">
-                        {results.results.map((result, index) => (
-                          <div key={result.candidate_id} className="bg-gray-50 p-4 rounded-lg">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center space-x-3">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${index === 0 ? 'bg-yellow-500' :
-                                    index === 1 ? 'bg-gray-400' :
-                                      index === 2 ? 'bg-orange-600' : 'bg-gray-300'
-                                  }`}>
-                                  {index + 1}
+            {/* Contenu des tabs */}
+            {loadingVotes ? (
+              <Card className="text-center py-8">
+                <RefreshCw className="w-8 h-8 text-gray-400 mx-auto mb-3 animate-spin" />
+                <p className="text-gray-600">Chargement des votes...</p>
+              </Card>
+            ) : (
+              <>
+                {/* Tab: À dépouiller */}
+                {activeTab === 'pending' && (
+                  pendingVotes.length === 0 ? (
+                    <Card className="text-center py-12">
+                      <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        Aucun vote à dépouiller
+                      </h3>
+                      <p className="text-gray-600">
+                        Tous les votes approuvés par le CO ont été traités.
+                      </p>
+                    </Card>
+                  ) : (
+                    <div className="space-y-4">
+                      {pendingVotes.map((vote) => (
+                        <Card key={vote.id}>
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-3 mb-2">
+                                <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                                  <Lock className="w-5 h-5 text-orange-600" />
                                 </div>
                                 <div>
-                                  <p className="font-semibold">{result.candidate_name}</p>
-                                  {result.candidate_party && (
-                                    <p className="text-xs text-gray-600">{result.candidate_party}</p>
-                                  )}
+                                  <h3 className="font-semibold text-lg">Vote #{vote.id}</h3>
+                                  <p className="text-sm text-gray-600">Élection: {vote.election_title}</p>
                                 </div>
                               </div>
-                              <div className="text-right">
-                                <p className="text-2xl font-bold text-gray-900">{result.vote_count}</p>
-                                <p className="text-xs text-gray-600">
-                                  {results.total_counted > 0
-                                    ? `${((result.vote_count / results.total_counted) * 100).toFixed(1)}%`
-                                    : '0%'
-                                  }
+                              
+                              <div className="ml-13 space-y-1">
+                                <p className="text-sm text-gray-600">
+                                  <strong>ID Vote:</strong> {vote.unique_id}
                                 </p>
+                                <p className="text-sm text-gray-500">
+                                  Approuvé par CO le: {new Date(vote.co_verified_at).toLocaleString('fr-FR')}
+                                </p>
+                                <div className="bg-yellow-50 border border-yellow-200 rounded p-2 mt-2">
+                                  <p className="text-xs text-yellow-800">
+                                    🔒 <strong>Anonyme:</strong> L'identité du votant (M1) n'est pas accessible au DE
+                                  </p>
+                                </div>
                               </div>
                             </div>
-                            {/* Barre de progression */}
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div
-                                className={`h-2 rounded-full ${index === 0 ? 'bg-yellow-500' :
-                                    index === 1 ? 'bg-gray-400' :
-                                      index === 2 ? 'bg-orange-600' : 'bg-gray-300'
-                                  }`}
-                                style={{
-                                  width: results.total_counted > 0
-                                    ? `${(result.vote_count / results.total_counted) * 100}%`
-                                    : '0%'
-                                }}
-                              ></div>
+
+                            <div className="flex flex-col space-y-2">
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => handleViewVote(vote)}
+                              >
+                                <Eye className="w-4 h-4 mr-2" />
+                                Dépouiller
+                              </Button>
                             </div>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  )
+                )}
+
+                {/* Tab: Comptabilisés */}
+                {activeTab === 'counted' && (
+                  countedVotes.length === 0 ? (
+                    <Card className="text-center py-12">
+                      <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        Aucun vote comptabilisé
+                      </h3>
+                      <p className="text-gray-600">
+                        Les votes comptabilisés apparaîtront ici.
+                      </p>
+                    </Card>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                        <h3 className="font-semibold text-green-900 mb-2">Résultats actuels:</h3>
+                        {countedVotes.map((result, index) => (
+                          <div key={index} className="flex items-center justify-between py-2 border-b border-green-100 last:border-0">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-green-200 rounded-full flex items-center justify-center">
+                                <span className="text-sm font-bold text-green-800">{index + 1}</span>
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-900">{result.candidate_name}</p>
+                                {result.candidate_party && (
+                                  <p className="text-xs text-gray-600">{result.candidate_party}</p>
+                                )}
+                              </div>
+                            </div>
+                            <Badge variant="success">
+                              {result.vote_count} vote(s)
+                            </Badge>
                           </div>
                         ))}
                       </div>
-                    ) : (
-                      <p className="text-gray-600 text-center py-8">Aucun vote comptabilisé</p>
-                    )}
-                  </>
-                )}
-              </Card>
-            ) : (
-              /* Bulletins en attente */
-             /* Bulletins en attente */
-              <Card>
-                <div className="mb-6">
-                  <h2 className="text-xl font-semibold">
-                    Dépouillement - {selectedElection.title}
-                  </h2>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {selectedElection.status === 'closed' 
-                      ? '🔒 Élection fermée - Déchiffrement des bulletins' 
-                      : '🔓 Élection en cours - Déchiffrement des bulletins approuvés'}
-                  </p>
-                </div>
-
-                {loading ? (
-                  <p className="text-center py-8 text-gray-600">Chargement...</p>
-                ) : pendingBallots.length === 0 ? (
-                  <div className="text-center py-12">
-                    <CheckCircle className="w-12 h-12 text-green-400 mx-auto mb-4" />
-                    <p className="text-gray-600">Aucun bulletin en attente</p>
-                    <p className="text-sm text-gray-500 mt-2">
-                      Tous les bulletins ont été déchiffrés
-                    </p>
-                    {selectedElection.status === 'closed' && (
-                      <div className="mt-4">
-                        <Badge variant="success">Dépouillement terminé</Badge>
-                        <p className="text-xs text-gray-500 mt-2">
-                          Les résultats seront publiés par l'administrateur
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {pendingBallots.map((ballot) => (
-                      <div key={ballot.id} className="bg-gray-50 p-4 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-semibold">Bulletin #{ballot.id}</p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              Approuvé par CO: {new Date(ballot.co_verified_at).toLocaleString('fr-FR')}
-                            </p>
-                            <p className="text-xs text-gray-400 mt-1">
-                              ID unique: {ballot.unique_id}
-                            </p>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => handleDownloadM2(ballot)}
-                            >
-                              <Download className="w-4 h-4 mr-2" />
-                              M2 PDF
-                            </Button>
-                            <Button
-                              variant="primary"
-                              size="sm"
-                              onClick={() => handleDecryptBallot(ballot)}
-                              disabled={decrypting}
-                            >
-                              <Unlock className="w-4 h-4 mr-2" />
-                              {decrypting ? 'Déchiffrement...' : 'Déchiffrer'}
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <Card className="mt-6 bg-yellow-50 border-yellow-200">
-                  <div className="flex items-start space-x-2">
-                    <Lock className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="font-semibold text-yellow-900 mb-1">Note de Sécurité</h4>
-                      <p className="text-sm text-yellow-800">
-                        Vous ne pouvez voir que les choix de vote (bulletins cryptés).
-                        Les identités des votants restent anonymes et ne peuvent être liées aux votes.
-                      </p>
-                      <p className="text-sm text-yellow-800 mt-2">
-                        ⚠️ Les résultats finaux seront consultables uniquement après que l'administrateur 
-                        ait fermé l'élection et publié les résultats.
-                      </p>
                     </div>
-                  </div>
-                </Card>
-              </Card>
+                  )
+                )}
+              </>
             )}
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
-      {/* Modal de déchiffrement */}
-      {showModal && selectedBallot && (
+      {/* Modal de dépouillement */}
+      {showModal && selectedVote && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <Card className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <h2 className="text-2xl font-bold mb-6">
-                Déchiffrement du bulletin - Vote #{selectedBallot.id}
-              </h2>
+          <Card className="max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4">
+              Dépouillement - Vote #{selectedVote.id}
+            </h2>
 
+            {/* Info anonymat */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-yellow-800">
+                🔒 <strong>Vote anonyme:</strong> Seul le bulletin (M2) est déchiffré. L'identité (M1) reste confidentielle.
+              </p>
+            </div>
+
+            {/* Bulletin déchiffré */}
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-4">
+              <h3 className="font-semibold text-indigo-900 mb-2 flex items-center">
+                <Lock className="w-5 h-5 mr-2" />
+                Message M2 (Bulletin chiffré)
+              </h3>
               {decrypting ? (
-                <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600">Déchiffrement de M2 en cours...</p>
+                <div className="flex items-center space-x-2">
+                  <RefreshCw className="w-4 h-4 text-indigo-600 animate-spin" />
+                  <p className="text-sm text-indigo-800">⏳ Déchiffrement PGP en cours...</p>
                 </div>
               ) : decryptedBallot ? (
-                <div className="space-y-6">
-                  {decryptedBallot.encrypted ? (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                      <p className="text-red-800 font-semibold mb-2">
-                        ❌ Erreur de déchiffrement
-                      </p>
-                      <p className="text-sm text-red-600">
-                        {decryptedBallot.error}
+                decryptedBallot.encrypted ? (
+                  <div className="space-y-2">
+                    {decryptedBallot.error && (
+                      <div className="bg-red-50 border border-red-200 rounded p-3 mb-2">
+                        <p className="text-sm text-red-800">
+                          ❌ <strong>Erreur:</strong> {decryptedBallot.error}
+                        </p>
+                      </div>
+                    )}
+                    <p className="text-sm text-orange-800">
+                      🔒 <strong>Message chiffré PGP</strong>
+                    </p>
+                    <p className="text-xs text-gray-600 break-all font-mono bg-white p-2 rounded">
+                      {decryptedBallot.m2_preview}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="bg-white p-4 rounded border-2 border-green-300">
+                      <p className="text-xs text-gray-600 mb-2">Vote pour:</p>
+                      <p className="text-2xl font-bold text-gray-900">{decryptedBallot.candidate_name}</p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        ID Candidat: {decryptedBallot.candidate_id}
                       </p>
                     </div>
-                  ) : (
-                    <>
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <p className="text-green-800 font-semibold mb-2">
-                          ✅ Bulletin déchiffré avec PGP
-                        </p>
-                        <p className="text-sm text-green-600">
-                          Le bulletin est anonyme - Aucune information d'identité visible
-                        </p>
-                      </div>
+                    <div className="bg-white p-3 rounded border border-green-200">
+                      <p className="text-xs text-gray-600 mb-1">Date du vote</p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {new Date(decryptedBallot.timestamp).toLocaleString('fr-FR')}
+                      </p>
+                    </div>
+                    <div className="bg-green-50 border border-green-200 rounded p-2 mt-2">
+                      <p className="text-xs text-green-800">
+                        ✅ Bulletin déchiffré avec succès
+                      </p>
+                    </div>
+                  </div>
+                )
+              ) : (
+                <p className="text-sm text-red-800">❌ Erreur de déchiffrement</p>
+              )}
+            </div>
 
-                      <div className="bg-white border border-gray-200 rounded-lg p-6">
-                        <div className="grid grid-cols-1 gap-4">
-                          <div className="border-b pb-4">
-                            <p className="text-sm text-gray-600 mb-1">Choix du votant</p>
-                            <p className="text-2xl font-bold text-blue-600">
-                              {decryptedBallot.candidate_name}
-                            </p>
-                          </div>
-
-                          <div className="border-b pb-4">
-                            <p className="text-sm text-gray-600 mb-1">ID Candidat</p>
-                            <p className="text-lg font-semibold text-gray-900">
-                              #{decryptedBallot.candidate_id}
-                            </p>
-                          </div>
-
-                          <div className="border-b pb-4">
-                            <p className="text-sm text-gray-600 mb-1">Date du vote</p>
-                            <p className="text-lg font-semibold text-gray-900">
-                              {new Date(decryptedBallot.timestamp).toLocaleString('fr-FR')}
-                            </p>
-                          </div>
-
-                          <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
-                            <p className="text-xs text-yellow-800">
-                              <strong>Note:</strong> Le linking_id permet de vérifier l'intégrité 
-                              mais ne révèle pas l'identité du votant
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ) : null}
-
-              <div className="flex gap-3 mt-8">
-                <Button
-                  variant="secondary"
-                  className="flex-1"
-                  onClick={() => {
-                    setShowModal(false);
-                    setSelectedBallot(null);
-                    setDecryptedBallot(null);
-                  }}
-                  disabled={decrypting}
-                >
-                  Annuler
-                </Button>
-                <Button
-                  variant="success"
-                  className="flex-1"
-                  onClick={handleConfirmDecryption}
-                  disabled={decrypting || decryptedBallot?.encrypted}
-                >
-                  {decrypting ? (
-                    'Comptabilisation...'
-                  ) : (
-                    <>
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Confirmer et Comptabiliser
-                    </>
-                  )}
-                </Button>
-              </div>
+            <div className="flex justify-end space-x-3">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowModal(false);
+                  setSelectedVote(null);
+                }}
+              >
+                Annuler
+              </Button>
+              <Button
+                variant="success"
+                onClick={() => {
+                  setShowModal(false);
+                  setCountDialog({ 
+                    isOpen: true, 
+                    voteId: selectedVote.id, 
+                    candidateName: decryptedBallot?.candidate_name || 'Candidat inconnu'
+                  });
+                }}
+                disabled={decryptedBallot?.encrypted}
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Comptabiliser ce vote
+              </Button>
             </div>
           </Card>
         </div>
       )}
+
+      {/* AlertDialog: Comptabiliser */}
+      <AlertDialog 
+        open={countDialog.isOpen} 
+        onOpenChange={(open) => setCountDialog({ isOpen: open, voteId: null, candidateName: '' })}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader className="items-center">
+            <div className="bg-green-100 mx-auto mb-2 flex size-12 items-center justify-center rounded-full">
+              <CheckCircle className="text-green-600 size-6" />
+            </div>
+            <AlertDialogTitle>Comptabiliser ce vote ?</AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              Confirmez-vous la comptabilisation de ce vote pour <strong>{countDialog.candidateName}</strong> ?
+              <br /><br />
+              Le vote sera ajouté aux résultats de l'élection.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCountVote}
+              className="bg-green-600 hover:bg-green-700 focus-visible:ring-green-600"
+            >
+              Comptabiliser
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

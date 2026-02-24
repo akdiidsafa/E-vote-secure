@@ -69,17 +69,21 @@ const LoginPage = () => {
       <div className="max-w-md w-full">
         {/* Logo and Title */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
-            <Shield className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">
+           <img 
+            src="/logo.png" 
+            alt="Vote Électronique" 
+            className="h-40 mx-auto mb-1"
+          />
+          <h1 className="text-2xl font-bold text-blue-900">
             Vote Électronique Sécurisé
           </h1>
         </div>
 
         {/* Login Form */}
         <div className="bg-white rounded-lg shadow-md p-8">
-          <h2 className="text-xl font-semibold mb-6">Connexion</h2>
+          <h2 className="text-xl font-semibold mb-6 text-blue-900">
+             Connexion
+             </h2>
 
           {/* Error Message */}
           {error && (
@@ -128,7 +132,8 @@ const LoginPage = () => {
             <Button
               type="submit"
               variant="primary"
-              className="w-full"
+                className="w-full bg-blue-800 hover:bg-blue-900 text-white font-medium py-2.5 rounded-lg transition duration-200"
+
               disabled={loading}
             >
               {loading ? 'Connexion en cours...' : 'Se Connecter'}

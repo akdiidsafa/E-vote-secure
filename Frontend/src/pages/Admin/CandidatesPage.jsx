@@ -451,7 +451,7 @@ const CandidatesPage = () => {
                 required
               />
 
-              {/* ✅ MODIFIÉ: Profession au lieu de Parti */}
+              {/*  MODIFIÉ: Profession au lieu de Parti */}
               <Input
                 name="party"
                 label="Profession / Poste actuel"
@@ -460,7 +460,7 @@ const CandidatesPage = () => {
                 onChange={handleChange}
               />
 
-              {/* ✅ MODIFIÉ: Description au lieu de Programme */}
+              {/*  MODIFIÉ: Description au lieu de Programme */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Description & Objectifs
@@ -475,7 +475,7 @@ const CandidatesPage = () => {
                 />
               </div>
 
-              {/* ✅ NOUVEAU: Upload de photo */}
+              {/*  NOUVEAU: Upload de photo */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Photo du candidat

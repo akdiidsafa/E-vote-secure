@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart3, TrendingUp, Users, Award, Download, RefreshCw, Vote, User } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
-import { electionsAPI, votesAPI } from '../../services/api';
+import { electionsAPI, votesAPI, resultsAPI } from '../../services/api';  // ✅ AJOUTÉ resultsAPI
 import { useNotification } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -54,7 +55,7 @@ const ResultsPage = () => {
       const response = await votesAPI.getResults(electionId);
       setResults(response.data);
     } catch (err) {
-      console.error('❌ Erreur:', err);
+      console.error(' Erreur:', err);
       showError('Erreur de chargement', 'Impossible de charger les résultats');
       setResults(null);
     } finally {
@@ -67,30 +68,29 @@ const ResultsPage = () => {
     loadResults(election.id);
   };
 
-  const handleDownloadResults = () => {
-    if (!results) return;
+
+  const handleDownloadPDF = async () => {
+    if (!selectedElection) return;
     
-    // Créer un CSV
-    let csv = 'Position,Candidat,Profession,Nombre de votes,Pourcentage\n';
-    results.results.forEach((result, index) => {
-      const percentage = results.total_counted > 0 
-        ? ((result.vote_count / results.total_counted) * 100).toFixed(1)
-        : '0';
-      csv += `${index + 1},${result.candidate_name},${result.candidate_party || 'N/A'},${result.vote_count},${percentage}%\n`;
-    });
-    
-    // Télécharger
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `resultats_${selectedElection.title.replace(/\s+/g, '_')}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-    
-    success('Téléchargement réussi!', 'Les résultats ont été téléchargés en CSV');
+    try {
+      console.log('📥 Téléchargement du PDF des résultats...');
+      const response = await resultsAPI.exportPDF(selectedElection.id);
+      
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `resultats_${selectedElection.title.replace(/\s+/g, '_')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      success('PDF téléchargé!', 'Résultats téléchargés avec succès');
+    } catch (err) {
+      console.error(' Erreur téléchargement PDF:', err);
+      showError('Erreur', err.response?.data?.error || 'Impossible de télécharger le PDF');
+    }
   };
 
   const handleLogout = async () => {
@@ -105,12 +105,18 @@ const ResultsPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                <Vote className="w-6 h-6 text-white" />
-              </div>
+              <img 
+                src="/logo.png" 
+                alt="Logo"
+                className="w-20 h-20 object-contain"
+              />
               <div>
-                <h1 className="text-xl font-semibold">Vote Électronique Sécurisé</h1>
-                <Badge variant="warning" className="mt-1">Administrateur</Badge>
+                <h1 className="text-xl font-semibold text-black-900">
+                  Vote Électronique Sécurisé
+                </h1>
+                <Badge variant="warning" className="mt-1">
+                  Administrateur
+                </Badge>
               </div>
             </div>
             <div className="flex items-center space-x-3">
@@ -276,9 +282,9 @@ const ResultsPage = () => {
                       <p className="text-gray-600 mt-1">{selectedElection.description}</p>
                     )}
                   </div>
-                  <Button variant="primary" onClick={handleDownloadResults}>
+                  <Button variant="primary" onClick={handleDownloadPDF}>
                     <Download className="w-4 h-4 mr-2" />
-                    Télécharger CSV
+                    Télécharger PDF
                   </Button>
                 </div>
               </Card>

@@ -96,6 +96,8 @@ const ElectionsPage = () => {
           <div className="flex items-center justify-between">
             <div>
               <button
+              variant="ghost" 
+                size="sm"
                 onClick={() => navigate('/admin/dashboard')}
                 className="text-sm text-blue-600 hover:text-blue-800 mb-2"
               >
@@ -271,7 +273,7 @@ const ElectionsPage = () => {
           </p>
         </div> */}
       </div>
-      {/* ✅ AlertDialog de suppression */}
+      {/* AlertDialog de suppression */}
       <AlertDialog 
         open={deleteDialog.isOpen} 
         onOpenChange={(open) => setDeleteDialog({ isOpen: open, electionId: null, electionTitle: '' })}

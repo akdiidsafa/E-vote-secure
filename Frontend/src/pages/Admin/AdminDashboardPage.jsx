@@ -229,14 +229,20 @@ const AdminDashboardPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                <Vote className="w-6 h-6 text-white" />
+                <img 
+                  src="/logo.png" 
+                  alt="Logo"
+                  className="w-20 h-20 object-contain"
+                />
+                <div>
+                  <h1 className="text-xl font-semibold text-black-900">
+                    Vote Électronique Sécurisé
+                  </h1>
+                  <Badge variant="warning" className="mt-1">
+                    Administrateur
+                  </Badge>
+                </div>
               </div>
-              <div>
-                <h1 className="text-xl font-semibold">Vote Électronique Sécurisé</h1>
-                <Badge variant="warning" className="mt-1">Administrateur</Badge>
-              </div>
-            </div>
             <div className="flex items-center space-x-3">
               {/* NOUVEAU: Badge de notifications */}
               {pendingValidationsCount > 0 && (

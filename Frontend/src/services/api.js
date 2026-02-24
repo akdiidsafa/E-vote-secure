@@ -180,7 +180,14 @@ export const resultsAPI = {
   publish: (electionId) => api.post(`/results/publish/${electionId}/`),
   getByElection: (electionId) => api.get(`/results/${electionId}/`),
   getPublished: () => api.get('/results/'),
+  
+  exportPDF: (electionId) => {
+    return api.get(`/results/${electionId}/export-pdf/`, {
+      responseType: 'blob'
+    });
+  },
 };
+
 
 // Invitations API
 export const invitationsAPI = {

@@ -5,7 +5,7 @@ import { BarChart3, TrendingUp, Users, Award, Download, RefreshCw, Vote, User } 
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
-import { electionsAPI, votesAPI, resultsAPI } from '../../services/api';  // ✅ AJOUTÉ resultsAPI
+import { electionsAPI, votesAPI, resultsAPI } from '../../services/api';  
 import { useNotification } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -29,20 +29,18 @@ const ResultsPage = () => {
       const response = await electionsAPI.getAll();
       const data = Array.isArray(response.data) ? response.data : response.data.results || [];
       
-      // Filtrer UNIQUEMENT les élections fermées avec des votes
       const closedElectionsWithVotes = data.filter(e => 
         e.status === 'closed' && e.total_votes > 0
       );
       
       setElections(closedElectionsWithVotes);
       
-      // Sélectionner la première élection par défaut
       if (closedElectionsWithVotes.length > 0 && !selectedElection) {
         loadResults(closedElectionsWithVotes[0].id);
         setSelectedElection(closedElectionsWithVotes[0]);
       }
     } catch (err) {
-      console.error('❌ Erreur:', err);
+      console.error(' Erreur:', err);
       showError('Erreur de chargement', 'Impossible de charger les élections');
     } finally {
       setLoading(false);
@@ -73,7 +71,7 @@ const ResultsPage = () => {
     if (!selectedElection) return;
     
     try {
-      console.log('📥 Téléchargement du PDF des résultats...');
+      console.log(' Téléchargement du PDF des résultats...');
       const response = await resultsAPI.exportPDF(selectedElection.id);
       
       const blob = new Blob([response.data], { type: 'application/pdf' });
@@ -181,7 +179,6 @@ const ResultsPage = () => {
         </div>
       </div>
 
-      {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <div className="flex items-center justify-between">
@@ -196,7 +193,6 @@ const ResultsPage = () => {
           </div>
         </div>
 
-        {/* Sélecteur d'élection */}
         {elections.length > 0 && (
           <Card className="mb-6">
             <div className="flex items-center justify-between">
@@ -226,10 +222,7 @@ const ResultsPage = () => {
             </div>
           </Card>
         )}
-
-        {/* Main Content - Results */}
         <div>
-          {/* Message si aucune élection fermée */}
           {!selectedElection && elections.length === 0 ? (
             <Card className="text-center py-12">
               <BarChart3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -289,7 +282,6 @@ const ResultsPage = () => {
                 </div>
               </Card>
 
-              {/* Stats */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <Card>
                   <div className="flex items-center space-x-3">
@@ -344,7 +336,6 @@ const ResultsPage = () => {
                 </Card>
               </div>
 
-              {/* Results */}
               <Card>
                 <h3 className="text-xl font-semibold mb-6">Classement des candidats</h3>
 
@@ -359,7 +350,6 @@ const ResultsPage = () => {
                         <div key={result.candidate_id} className="relative">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center space-x-4">
-                              {/* Position Badge */}
                               <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg ${
                                 index === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 shadow-lg' : 
                                 index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-500' : 
@@ -368,7 +358,6 @@ const ResultsPage = () => {
                                 {index + 1}
                               </div>
 
-                              {/* Candidate Info */}
                               <div>
                                 <div className="flex items-center space-x-2">
                                   <p className="font-bold text-lg text-gray-900">{result.candidate_name}</p>
@@ -382,14 +371,12 @@ const ResultsPage = () => {
                               </div>
                             </div>
 
-                            {/* Vote Count */}
                             <div className="text-right">
                               <p className="text-3xl font-bold text-gray-900">{result.vote_count}</p>
                               <p className="text-sm text-gray-600">{percentage}%</p>
                             </div>
                           </div>
 
-                          {/* Progress Bar */}
                           <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
                             <div 
                               className={`h-3 rounded-full transition-all duration-500 ${
@@ -415,7 +402,6 @@ const ResultsPage = () => {
                 )}
               </Card>
 
-              {/* Info */}
               <Card className="mt-6 bg-blue-50 border-blue-200">
                 <div className="flex items-start space-x-3">
                   <BarChart3 className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />

@@ -43,7 +43,6 @@ const AdminProfilePage = () => {
         organization: response.data.organization || '',
       });
     } catch (err) {
-      console.error('❌ Erreur:', err);
       showError('Erreur de chargement', 'Impossible de charger votre profil');
     } finally {
       setLoading(false);
@@ -63,7 +62,6 @@ const AdminProfilePage = () => {
       await profileAPI.update(formData);
       success('Profil mis à jour!', 'Vos informations ont été enregistrées avec succès.');
     } catch (err) {
-      console.error('❌ Erreur:', err);
       const errorMsg = err.response?.data?.detail || 'Impossible de mettre à jour le profil';
       showError('Erreur de mise à jour', errorMsg);
     } finally {
@@ -101,13 +99,11 @@ const AdminProfilePage = () => {
         </div>
       </div>
 
-      {/* Content */}
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Card>
           <h2 className="text-lg font-semibold mb-6">Informations du profil</h2>
           
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Avatar */}
             <div className="flex items-center space-x-4">
               <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center">
                 {formData.avatar ? (
@@ -122,16 +118,15 @@ const AdminProfilePage = () => {
               </div>
               <div className="flex-1">
                 <Input
-                  name="avatar"
+                  name="Photo de profil"
                   label="URL de l'avatar"
-                  placeholder="https://example.com/avatar.jpg"
+                  placeholder="https://example.com/profile.jpg"
                   value={formData.avatar}
                   onChange={handleChange}
                 />
               </div>
             </div>
 
-            {/* Nom d'utilisateur et Email */}
             <div className="grid grid-cols-2 gap-4">
               <Input
                 name="username"
@@ -154,7 +149,6 @@ const AdminProfilePage = () => {
               />
             </div>
 
-            {/* Prénom et Nom */}
             <div className="grid grid-cols-2 gap-4">
               <Input
                 name="first_name"
@@ -172,7 +166,6 @@ const AdminProfilePage = () => {
               />
             </div>
 
-            {/* Téléphone et Organisation */}
             <div className="grid grid-cols-2 gap-4">
               <Input
                 name="phone"
@@ -192,7 +185,6 @@ const AdminProfilePage = () => {
               />
             </div>
 
-            {/* Bio */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 <FileText className="w-4 h-4 inline mr-2" />
@@ -208,7 +200,6 @@ const AdminProfilePage = () => {
               />
             </div>
 
-            {/* Actions */}
             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
               <Button
                 type="button"

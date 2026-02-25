@@ -23,16 +23,13 @@ const ViewElectionPage = () => {
   try {
     setLoading(true);
     
-    // Charger l'élection
     const electionRes = await electionsAPI.getById(id);
     setElection(electionRes.data);
 
-    // Charger les électeurs assignés
     try {
       const votersRes = await electionsAPI.getVoters(id);
-      console.log('✅ Électeurs:', votersRes.data);
+      console.log('Électeurs:', votersRes.data);
       
-      // ← FIX: Extraire le tableau results
       const votersData = Array.isArray(votersRes.data) 
         ? votersRes.data 
         : votersRes.data.results || [];
@@ -44,7 +41,7 @@ const ViewElectionPage = () => {
     }
 
   } catch (err) {
-    console.error('❌ Erreur:', err);
+    console.error(' Erreur:', err);
     setError('Impossible de charger l\'élection');
   } finally {
     setLoading(false);
@@ -113,9 +110,7 @@ const ViewElectionPage = () => {
         </div>
       </div>
 
-      {/* Content */}
       <div className="max-w-5xl mx-auto px-4 py-8">
-        {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card>
             <div className="flex items-center justify-between">
@@ -158,7 +153,6 @@ const ViewElectionPage = () => {
           </Card>
         </div>
 
-        {/* Details */}
         <Card className="mb-8">
           <h2 className="text-lg font-semibold mb-4">Détails de l'Élection</h2>
           
@@ -233,7 +227,6 @@ const ViewElectionPage = () => {
           </div>
         </Card>
 
-        {/* Électeurs Assignés */}
         <Card className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Électeurs Assignés</h2>
@@ -265,13 +258,13 @@ const ViewElectionPage = () => {
                         <Users className="w-5 h-5 text-blue-600" />
                       </div>
                      <div>
-  <p className="font-medium">
-    {item.voter_details?.username || item.voter?.username || 'Électeur'}
-  </p>
-  <p className="text-sm text-gray-600">
-    {item.voter_details?.email || item.voter?.email || ''}
-  </p>
-</div>
+                      <p className="font-medium">
+                        {item.voter_details?.username || item.voter?.username || 'Électeur'}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {item.voter_details?.email || item.voter?.email || ''}
+                      </p>
+                    </div>
                     </div>
                     <Badge variant={item.has_voted ? 'success' : 'warning'}>
                       {item.has_voted ? 'A voté' : 'Pas encore voté'}
@@ -291,7 +284,6 @@ const ViewElectionPage = () => {
           )}
         </Card>
 
-        {/* Actions */}
         <Card>
           <h2 className="text-lg font-semibold mb-4">Actions Disponibles</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

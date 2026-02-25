@@ -98,7 +98,7 @@ export const candidatesAPI = {
   getByElection: (electionId) => api.get(`/candidates/election/${electionId}/`),
 };
 
-// ✅ NOUVEAU: CO API (Modern)
+// CO API 
 export const coAPI = {
   // Récupérer tous les votes d'une élection
   getElectionVotes: (electionId) => api.get(`/votes/co/election/${electionId}/`),

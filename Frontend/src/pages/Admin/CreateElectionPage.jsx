@@ -62,7 +62,7 @@ const CreateElectionPage = () => {
 
       const response = await electionsAPI.create(electionData);
       
-      console.log('✅ Élection créée:', response.data);
+      console.log('Élection créée:', response.data);
       
       success(
         'Élection créée!',
@@ -72,8 +72,8 @@ const CreateElectionPage = () => {
       navigate('/admin/elections');
       
     } catch (err) {
-      console.error('❌ Erreur:', err);
-      console.error('❌ Response:', err.response?.data);
+      console.error(' Erreur:', err);
+      console.error(' Response:', err.response?.data);
       
       const errorMsg = err.response?.data?.title?.[0]
         || err.response?.data?.start_date?.[0]
@@ -109,7 +109,6 @@ const CreateElectionPage = () => {
         </div>
       </div>
 
-      {/* Form */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Card>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -205,7 +204,7 @@ const CreateElectionPage = () => {
 
         <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-sm text-blue-800">
-            💡 <strong>Note:</strong> L'élection sera créée avec le statut "Brouillon". 
+             <strong>Note:</strong> L'élection sera créée avec le statut "Brouillon". 
             Vous pourrez l'ouvrir plus tard après avoir ajouté des candidats et des électeurs.
           </p>
         </div>

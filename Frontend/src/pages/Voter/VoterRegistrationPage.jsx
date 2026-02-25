@@ -30,14 +30,14 @@ const VoterRegistrationPage = () => {
       const response = await invitationsAPI.getByToken(token);
       setInvitation(response.data);
       
-      // Pré-remplir l'email
+     
       setFormData(prev => ({
         ...prev,
         email: response.data.email,
         full_name: response.data.full_name || ''
       }));
     } catch (err) {
-      console.error('❌ Erreur:', err);
+      console.error(' Erreur:', err);
       showError('Lien invalide', 'Ce lien d\'invitation n\'est pas valide ou a expiré.');
     } finally {
       setLoading(false);
@@ -77,7 +77,7 @@ const VoterRegistrationPage = () => {
       }, 2000);
       
     } catch (err) {
-      console.error('❌ Erreur:', err);
+      console.error(' Erreur:', err);
       const errorMsg = err.response?.data?.email?.[0]
         || err.response?.data?.token?.[0]
         || err.response?.data?.detail
@@ -171,7 +171,7 @@ const VoterRegistrationPage = () => {
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-sm text-blue-800">
-              ℹ️ Après soumission, votre demande sera validée par un administrateur. 
+               Après soumission, votre demande sera validée par un administrateur. 
               Vous recevrez vos identifiants par email.
             </p>
           </div>

@@ -32,7 +32,7 @@ const VoterDashboardPage = () => {
       const openElections = electionsData.filter(e => e.status === 'open');
       setElections(openElections);
     } catch (err) {
-      console.error('❌ Erreur:', err);
+      console.error(' Erreur:', err);
       showError('Erreur de chargement', 'Impossible de charger les élections');
     } finally {
       setLoading(false);

@@ -1,6 +1,3 @@
-
-
-
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -177,7 +174,7 @@ class VoteReceiptView(APIView):
 class COElectionVotesView(APIView):
     """
     GET /api/votes/co/election/<election_id>/
-    ✅ NOUVEAU: Liste tous les votes d'une élection pour le CO
+    Liste tous les votes d'une élection pour le CO
     """
     permission_classes = [permissions.IsAuthenticated]
     
@@ -216,7 +213,7 @@ class COElectionVotesView(APIView):
 class COApproveVoteView(APIView):
     """
     POST /api/votes/co/approve/
-    ✅ NOUVEAU: Approuver un vote et générer le PDF M2
+     Approuver un vote et générer le PDF M2
     """
     permission_classes = [permissions.IsAuthenticated]
     
@@ -255,7 +252,7 @@ class COApproveVoteView(APIView):
             vote.co_verified_at = timezone.now()
             vote.co_verified_by = request.user
             
-            # ✅ Générer le PDF M2
+            # Générer le PDF M2
             pdf_file = self.generate_m2_pdf(vote)
             vote.m2_pdf = pdf_file
             vote.save()
@@ -271,7 +268,7 @@ class COApproveVoteView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     def generate_m2_pdf(self, vote):
-        """✅ NOUVEAU: Génère le PDF M2 avec le bulletin chiffré"""
+        """ Génère le PDF M2 avec le bulletin chiffré"""
         buffer = io.BytesIO()
         p = canvas.Canvas(buffer, pagesize=A4)
         width, height = A4
@@ -354,7 +351,7 @@ class COApproveVoteView(APIView):
 class CORejectVoteView(APIView):
     """
     POST /api/votes/co/reject/
-    ✅ NOUVEAU: Rejeter un vote
+    Rejeter un vote
     """
     permission_classes = [permissions.IsAuthenticated]
     
@@ -388,7 +385,7 @@ class CORejectVoteView(APIView):
 class CODownloadM2PDFView(APIView):
     """
     GET /api/votes/co/<vote_id>/download-m2/
-    ✅ NOUVEAU: Télécharger le PDF M2
+    Télécharger le PDF M2
     """
     permission_classes = [permissions.IsAuthenticated]
     
@@ -417,7 +414,7 @@ class CODownloadM2PDFView(APIView):
 class COPendingVotesView(APIView):
     """
     GET /api/votes/co/pending/ - ANCIEN: Liste des votes en attente
-    ⚠️ DÉPRÉCIÉ: Utiliser /api/votes/co/election/<id>/ à la place
+    DÉPRÉCIÉ: Utiliser /api/votes/co/election/<id>/ à la place
     """
     permission_classes = [permissions.IsAuthenticated]
     

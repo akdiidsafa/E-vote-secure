@@ -63,7 +63,7 @@ export const decryptMessage = async (encryptedMessage, privateKeyArmored) => {
 
     return decrypted;
   } catch (error) {
-    console.error('❌ Erreur de déchiffrement:', error);
+    console.error(' Erreur de déchiffrement:', error);
     return false;
   }
 };

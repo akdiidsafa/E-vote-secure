@@ -56,7 +56,7 @@ const AssignmentPage = () => {
       setAssignments(votersOnly.map(v => ({ ...v, assigned: false })));
 
     } catch (error) {
-      console.error('❌ Erreur:', error);
+      console.error(error);
       showError('Erreur de chargement', 'Impossible de charger les données');
     } finally {
       setLoading(false);
@@ -80,7 +80,7 @@ const AssignmentPage = () => {
       })));
       
     } catch (error) {
-      console.error('❌ Erreur chargement assignations:', error);
+      console.error( error);
       setAssignments(voters.map(v => ({ ...v, assigned: false })));
     }
   };
@@ -121,7 +121,7 @@ const AssignmentPage = () => {
       navigate(`/admin/elections/${selectedElection}`);
       
     } catch (error) {
-      console.error('❌ Erreur:', error);
+      console.error( error);
       showError('Erreur d\'assignation', 'Impossible d\'enregistrer les assignations');
     }
   };
@@ -162,9 +162,7 @@ const AssignmentPage = () => {
         </div>
       </div>
 
-      {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats */}
         <div className="grid grid-cols-3 gap-6 mb-6">
           <Card>
             <p className="text-sm text-gray-600 mb-1">Total Électeurs</p>
@@ -221,7 +219,6 @@ const AssignmentPage = () => {
 
         {selectedElection && (
           <>
-            {/* Assignment Controls */}
             <Card className="mb-6">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold">
@@ -247,7 +244,6 @@ const AssignmentPage = () => {
               </div>
             </Card>
 
-            {/* Voters List */}
             <Card>
               {assignments.length === 0 ? (
                 <div className="text-center py-12">

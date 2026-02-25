@@ -36,7 +36,6 @@ const LoginPage = () => {
       if (result.success) {
         const user = JSON.parse(localStorage.getItem('user'));
         
-        // Navigate based on role
         switch (user.role) {
           case 'admin':
             navigate('/admin/dashboard');
@@ -67,7 +66,6 @@ const LoginPage = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="max-w-md w-full">
-        {/* Logo and Title */}
         <div className="text-center mb-8">
            <img 
             src="/logo.png" 
@@ -79,13 +77,11 @@ const LoginPage = () => {
           </h1>
         </div>
 
-        {/* Login Form */}
         <div className="bg-white rounded-lg shadow-md p-8">
           <h2 className="text-xl font-semibold mb-6 text-blue-900">
              Connexion
              </h2>
 
-          {/* Error Message */}
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-sm text-red-600">{error}</p>
@@ -139,18 +135,6 @@ const LoginPage = () => {
               {loading ? 'Connexion en cours...' : 'Se Connecter'}
             </Button>
 
-            <div className="text-center mt-4">
-              
-               <a href="#"
-                className="text-sm text-blue-600 hover:text-blue-700"
-                onClick={(e) => {
-                  e.preventDefault();
-                  alert('Fonctionnalité à venir');
-                }}
-              >
-                Mot de passe oublié ?
-              </a>
-            </div>
           </form>
         </div>
       </div>

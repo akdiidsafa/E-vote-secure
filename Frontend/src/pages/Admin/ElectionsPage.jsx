@@ -42,7 +42,7 @@ const ElectionsPage = () => {
       
       setElections(electionsData);
     } catch (err) {
-      console.error('❌ Erreur:', err);
+      console.error('Erreur:', err);
       setError('Impossible de charger les élections');
     } finally {
       setLoading(false);
@@ -118,7 +118,6 @@ const ElectionsPage = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Filters */}
         <div className="flex space-x-2 mb-6">
           {[
             { value: 'all', label: 'Tout' },
@@ -142,7 +141,6 @@ const ElectionsPage = () => {
           ))}
         </div>
 
-        {/* Elections Table */}
         <Card>
           {error ? (
             <div className="p-6 text-center">
@@ -265,15 +263,7 @@ const ElectionsPage = () => {
           )}
         </Card>
 
-        {/* Info Box */}
-        {/* <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-800">
-            💡 <strong>Astuce:</strong> Les élections créées ici sont stockées dans la base de données Django.
-            Vous pouvez aussi les gérer depuis l'admin Django à http://localhost:8000/admin/
-          </p>
-        </div> */}
       </div>
-      {/* AlertDialog de suppression */}
       <AlertDialog 
         open={deleteDialog.isOpen} 
         onOpenChange={(open) => setDeleteDialog({ isOpen: open, electionId: null, electionTitle: '' })}

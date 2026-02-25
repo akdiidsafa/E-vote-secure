@@ -24,26 +24,21 @@ const DEDashboardPage = () => {
   const { user, logout } = useAuth();
   const { success, error: showError } = useNotification();
 
-  // States pour AlertDialog
   const [countDialog, setCountDialog] = useState({ isOpen: false, voteId: null, candidateName: '' });
 
-  // States pour les élections et votes
   const [elections, setElections] = useState([]);
   const [selectedElection, setSelectedElection] = useState(null);
   const [pendingVotes, setPendingVotes] = useState([]);
   const [countedVotes, setCountedVotes] = useState([]);
   const [stats, setStats] = useState({ total: 0, pending: 0, counted: 0 });
 
-  // States pour le modal de déchiffrement
   const [selectedVote, setSelectedVote] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [decryptedBallot, setDecryptedBallot] = useState(null);
   const [decrypting, setDecrypting] = useState(false);
 
-  // States pour l'onglet actif
   const [activeTab, setActiveTab] = useState('pending');
 
-  // Loading states
   const [loading, setLoading] = useState(true);
   const [loadingVotes, setLoadingVotes] = useState(false);
 
@@ -57,17 +52,15 @@ const DEDashboardPage = () => {
       const response = await electionsAPI.getAll();
       const data = Array.isArray(response.data) ? response.data : response.data.results || [];
       
-      // Filtrer les élections ouvertes ou fermées
       const activeElections = data.filter(e => ['open', 'closed'].includes(e.status));
       setElections(activeElections);
       
-      // Sélectionner automatiquement la première élection
       if (activeElections.length > 0 && !selectedElection) {
         setSelectedElection(activeElections[0]);
         loadElectionVotes(activeElections[0].id);
       }
     } catch (err) {
-      console.error('❌ Erreur:', err);
+      console.error(' Erreur:', err);
       showError('Erreur de chargement', 'Impossible de charger les élections');
     } finally {
       setLoading(false);
@@ -77,19 +70,16 @@ const DEDashboardPage = () => {
   const loadElectionVotes = async (electionId) => {
     try {
       setLoadingVotes(true);
-      console.log('📡 Chargement des votes pour l\'élection:', electionId);
+      console.log(' Chargement des votes pour l\'élection:', electionId);
       
-      // Récupérer les votes en attente (status='pending_de')
       const response = await votesAPI.getPendingDE(electionId);
       const allVotes = Array.isArray(response.data) ? response.data : [];
       
-      console.log('✅ Votes reçus:', allVotes);
+      console.log(' Votes reçus:', allVotes);
       
-      // Séparer en pending et counted (on ne peut pas avoir counted via getPendingDE)
-      // On va faire une requête séparée pour les résultats
+     
       setPendingVotes(allVotes);
       
-      // Charger les résultats pour avoir les votes comptés
       try {
         const resultsResponse = await votesAPI.getResults(electionId);
         const results = resultsResponse.data;
@@ -109,7 +99,7 @@ const DEDashboardPage = () => {
         });
       }
     } catch (err) {
-      console.error('❌ Erreur:', err);
+      console.error(' Erreur:', err);
       showError('Erreur de chargement', 'Impossible de charger les votes');
     } finally {
       setLoadingVotes(false);
@@ -129,9 +119,8 @@ const DEDashboardPage = () => {
     setDecryptedBallot(null);
 
     try {
-      console.log('🔓 Déchiffrement PGP de M2 (bulletin)...');
+      console.log(' Déchiffrement PGP de M2 (bulletin)...');
 
-      // Récupérer la clé privée DE
       const keysResponse = await electionsAPI.getPrivateKeys(vote.election_id);
       const { de_private_key } = keysResponse.data;
 
@@ -139,18 +128,18 @@ const DEDashboardPage = () => {
         throw new Error('Clé privée DE non disponible');
       }
 
-      console.log('✅ Clé privée PGP DE récupérée');
+      console.log(' Clé privée PGP DE récupérée');
 
-      // Déchiffrer M2 avec PGP
+      // Dechiffrer M2 avec PGP
       const decryptedText = await decryptMessage(vote.m2_ballot, de_private_key);
 
       if (!decryptedText) {
         throw new Error('Échec du déchiffrement PGP');
       }
 
-      console.log('✅ M2 déchiffré avec PGP');
+      console.log(' M2 déchiffré avec PGP');
 
-      // Parser le JSON
+      // le JSON
       const ballotData = JSON.parse(decryptedText);
 
       console.log('📋 Bulletin déchiffré:', ballotData);
@@ -164,7 +153,7 @@ const DEDashboardPage = () => {
       });
 
     } catch (error) {
-      console.error('❌ Erreur de déchiffrement PGP:', error);
+      console.error(' Erreur de déchiffrement PGP:', error);
 
       setDecryptedBallot({
         candidate_id: null,
@@ -182,7 +171,7 @@ const DEDashboardPage = () => {
     if (!countDialog.voteId) return;
 
     try {
-      console.log('📤 Comptabilisation du vote...');
+      console.log(' Comptabilisation du vote...');
       
       await votesAPI.decryptDE({
         vote_id: countDialog.voteId
@@ -190,12 +179,11 @@ const DEDashboardPage = () => {
 
       success('Vote comptabilisé!', 'Le vote a été ajouté aux résultats.');
       
-      // Recharger les votes
       if (selectedElection) {
         loadElectionVotes(selectedElection.id);
       }
     } catch (err) {
-      console.error('❌ Erreur:', err);
+      console.error('Erreur:', err);
       showError('Erreur de comptabilisation', err.response?.data?.error || 'Impossible de comptabiliser le vote');
     } finally {
       setCountDialog({ isOpen: false, voteId: null, candidateName: '' });
@@ -260,9 +248,7 @@ const DEDashboardPage = () => {
         </div>
       </div>
 
-      {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Sélecteur d'élection */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Sélectionnez une élection</h2>
           
@@ -298,10 +284,8 @@ const DEDashboardPage = () => {
           )}
         </div>
 
-        {/* Votes de l'élection sélectionnée */}
         {selectedElection && (
           <>
-            {/* Stats */}
             <div className="grid grid-cols-3 gap-6 mb-6">
               <Card>
                 <p className="text-sm text-gray-600 mb-1">Total</p>
@@ -317,7 +301,6 @@ const DEDashboardPage = () => {
               </Card>
             </div>
 
-            {/* Tabs */}
             <div className="mb-6">
               <div className="border-b border-gray-200">
                 <nav className="-mb-px flex space-x-8">
@@ -347,7 +330,6 @@ const DEDashboardPage = () => {
               </div>
             </div>
 
-            {/* Contenu des tabs */}
             {loadingVotes ? (
               <Card className="text-center py-8">
                 <RefreshCw className="w-8 h-8 text-gray-400 mx-auto mb-3 animate-spin" />
@@ -355,7 +337,6 @@ const DEDashboardPage = () => {
               </Card>
             ) : (
               <>
-                {/* Tab: À dépouiller */}
                 {activeTab === 'pending' && (
                   pendingVotes.length === 0 ? (
                     <Card className="text-center py-12">
@@ -392,7 +373,7 @@ const DEDashboardPage = () => {
                                 </p>
                                 <div className="bg-yellow-50 border border-yellow-200 rounded p-2 mt-2">
                                   <p className="text-xs text-yellow-800">
-                                    🔒 <strong>Anonyme:</strong> L'identité du votant (M1) n'est pas accessible au DE
+                                     <strong>Anonyme:</strong> L'identité du votant (M1) n'est pas accessible au DE
                                   </p>
                                 </div>
                               </div>
@@ -415,7 +396,6 @@ const DEDashboardPage = () => {
                   )
                 )}
 
-                {/* Tab: Comptabilisés */}
                 {activeTab === 'counted' && (
                   countedVotes.length === 0 ? (
                     <Card className="text-center py-12">
@@ -459,7 +439,6 @@ const DEDashboardPage = () => {
         )}
       </div>
 
-      {/* Modal de dépouillement */}
       {showModal && selectedVote && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <Card className="max-w-2xl w-full max-h-[80vh] overflow-y-auto">
@@ -470,11 +449,11 @@ const DEDashboardPage = () => {
             {/* Info anonymat */}
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
               <p className="text-sm text-yellow-800">
-                🔒 <strong>Vote anonyme:</strong> Seul le bulletin (M2) est déchiffré. L'identité (M1) reste confidentielle.
+                 <strong>Vote anonyme:</strong> Seul le bulletin (M2) est déchiffré. L'identité (M1) reste confidentielle.
               </p>
             </div>
 
-            {/* Bulletin déchiffré */}
+            {/* Bulletin dechiffre */}
             <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-4">
               <h3 className="font-semibold text-indigo-900 mb-2 flex items-center">
                 <Lock className="w-5 h-5 mr-2" />
@@ -491,12 +470,12 @@ const DEDashboardPage = () => {
                     {decryptedBallot.error && (
                       <div className="bg-red-50 border border-red-200 rounded p-3 mb-2">
                         <p className="text-sm text-red-800">
-                          ❌ <strong>Erreur:</strong> {decryptedBallot.error}
+                           <strong>Erreur:</strong> {decryptedBallot.error}
                         </p>
                       </div>
                     )}
                     <p className="text-sm text-orange-800">
-                      🔒 <strong>Message chiffré PGP</strong>
+                       <strong>Message chiffré PGP</strong>
                     </p>
                     <p className="text-xs text-gray-600 break-all font-mono bg-white p-2 rounded">
                       {decryptedBallot.m2_preview}
@@ -519,13 +498,13 @@ const DEDashboardPage = () => {
                     </div>
                     <div className="bg-green-50 border border-green-200 rounded p-2 mt-2">
                       <p className="text-xs text-green-800">
-                        ✅ Bulletin déchiffré avec succès
+                         Bulletin déchiffré avec succès
                       </p>
                     </div>
                   </div>
                 )
               ) : (
-                <p className="text-sm text-red-800">❌ Erreur de déchiffrement</p>
+                <p className="text-sm text-red-800"> Erreur de déchiffrement</p>
               )}
             </div>
 
@@ -559,7 +538,6 @@ const DEDashboardPage = () => {
         </div>
       )}
 
-      {/* AlertDialog: Comptabiliser */}
       <AlertDialog 
         open={countDialog.isOpen} 
         onOpenChange={(open) => setCountDialog({ isOpen: open, voteId: null, candidateName: '' })}

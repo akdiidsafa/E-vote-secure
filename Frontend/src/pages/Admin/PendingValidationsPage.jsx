@@ -39,7 +39,7 @@ const PendingValidationsPage = () => {
       const data = Array.isArray(response.data) ? response.data : response.data.results || [];
       setInvitations(data);
     } catch (err) {
-      console.error('❌ Erreur:', err);
+      console.error(' Erreur:', err);
       showError('Erreur de chargement', 'Impossible de charger les demandes en attente');
     } finally {
       setLoading(false);
@@ -54,7 +54,7 @@ const PendingValidationsPage = () => {
       success('Demande approuvée!', 'Les identifiants ont été envoyés au votant par email.');
       loadPendingInvitations();
     } catch (err) {
-      console.error('❌ Erreur:', err);
+      console.error(' Erreur:', err);
       showError('Erreur de validation', 'Impossible de traiter la demande');
     } finally {
       setApproveDialog({ isOpen: false, invitationId: null, voterName: '' });
@@ -69,7 +69,7 @@ const PendingValidationsPage = () => {
       success('Demande rejetée', 'Le votant a été notifié du rejet.');
       loadPendingInvitations();
     } catch (err) {
-      console.error('❌ Erreur:', err);
+      console.error(' Erreur:', err);
       showError('Erreur de validation', 'Impossible de traiter la demande');
     } finally {
       setRejectDialog({ isOpen: false, invitationId: null, voterName: '' });
@@ -186,7 +186,6 @@ const PendingValidationsPage = () => {
         )}
       </div>
 
-      {/* ✅ AlertDialog: Approuver */}
       <AlertDialog 
         open={approveDialog.isOpen} 
         onOpenChange={(open) => setApproveDialog({ isOpen: open, invitationId: null, voterName: '' })}
@@ -215,7 +214,6 @@ const PendingValidationsPage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ✅ AlertDialog: Rejeter */}
       <AlertDialog 
         open={rejectDialog.isOpen} 
         onOpenChange={(open) => setRejectDialog({ isOpen: open, invitationId: null, voterName: '' })}

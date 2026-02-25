@@ -54,7 +54,7 @@ const VotePage = () => {
       
       setCandidates(candidatesData);
     } catch (err) {
-      console.error('❌ Erreur:', err);
+      console.error(' Erreur:', err);
       const errorMsg = err.response?.data?.detail || err.response?.data?.error || 'Une erreur est survenue';
       showError('Erreur de vote', errorMsg);
       navigate('/voter/dashboard');
@@ -81,70 +81,70 @@ const VotePage = () => {
     try {
       setSubmitting(true);
 
-      console.log('🔐 === DÉBUT DU CHIFFREMENT PGP ===');
+      console.log(' === DÉBUT DU CHIFFREMENT PGP ===');
 
-      // 1. Récupérer les clés publiques
-      console.log('📡 Récupération des clés publiques PGP...');
+      // Récupérer les clés publiques
+      console.log(' Récupération des clés publiques PGP...');
       const keysResponse = await electionsAPI.getPublicKeys(id);
       const { co_public_key, de_public_key } = keysResponse.data;
 
-      console.log('✅ Clés publiques PGP récupérées');
+      console.log('Clés publiques PGP récupérées');
 
       if (!co_public_key || !de_public_key) {
         throw new Error('Les clés publiques de chiffrement sont manquantes');
       }
 
-      // 2. Générer un linking_id (hash SHA-256 d'un secret aléatoire)
+      //  Générer un linking_id (hash SHA-256 d'un secret aléatoire)
       const secret = crypto.randomUUID();
       const secretBuffer = new TextEncoder().encode(secret);
       const hashBuffer = await crypto.subtle.digest('SHA-256', secretBuffer);
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const linking_id = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
       
-      console.log('🔗 Linking ID généré:', linking_id.substring(0, 16) + '...');
+      console.log(' Linking ID généré:', linking_id.substring(0, 16) + '...');
 
-      // 3. Créer M1 (Identité) avec linking_id
+      //  Créer M1 (Identité) avec linking_id
       const m1_data = {
         voter_id: user.id,
         voter_name: user.first_name && user.last_name 
           ? `${user.first_name} ${user.last_name}` 
           : user.username,
         voter_email: user.email,
-        linking_id: linking_id,  // ← AJOUTÉ
+        linking_id: linking_id,  
         timestamp: new Date().toISOString(),
       };
 
-      // 4. Créer M2 (Vote) avec linking_id
+      //  Créer M2 (Vote) avec linking_id
       const m2_data = {
         candidate_id: selectedCandidate.id,
         candidate_name: selectedCandidate.name,
-        linking_id: linking_id,  // ← AJOUTÉ (le même!)
+        linking_id: linking_id, 
         timestamp: new Date().toISOString(),
       };
 
-      console.log('📝 Messages créés avec linking_id');
+      console.log('Messages créés avec linking_id');
 
-      // 5. Chiffrer M1 avec clé publique CO
-      console.log('🔒 Chiffrement PGP de M1 (Identité)...');
+      //  Chiffrer M1 avec clé publique CO
+      console.log(' Chiffrement PGP de M1 (Identité)...');
       const m1_identity = await encryptMessage(JSON.stringify(m1_data), co_public_key);
       
       if (!m1_identity) {
         throw new Error('Échec du chiffrement de l\'identité (M1)');
       }
-      console.log('✅ M1 chiffré avec PGP');
+      console.log('M1 chiffré avec PGP');
 
       // 6. Chiffrer M2 avec clé publique DE
-      console.log('🔒 Chiffrement PGP de M2 (Bulletin)...');
+      console.log(' Chiffrement PGP de M2 (Bulletin)...');
       const m2_ballot = await encryptMessage(JSON.stringify(m2_data), de_public_key);
 
       if (!m2_ballot) {
         throw new Error('Échec du chiffrement du bulletin (M2)');
       }
-      console.log('✅ M2 chiffré avec PGP');
+      console.log(' M2 chiffré avec PGP');
 
       // 7. Générer un ID unique pour le transfert
       const unique_id = crypto.randomUUID();
-      console.log('🆔 ID unique généré:', unique_id);
+      console.log(' ID unique généré:', unique_id);
 
       // 8. Envoyer les messages chiffrés au backend
       const voteData = {
@@ -154,12 +154,12 @@ const VotePage = () => {
         unique_id,
       };
 
-      console.log('📤 Envoi du vote crypté PGP au serveur...');
+      console.log(' Envoi du vote crypté PGP au serveur...');
 
       const response = await votesAPI.submit(voteData);
 
-      console.log('✅ Vote enregistré avec succès!');
-      console.log('🔐 === FIN DU CHIFFREMENT PGP ===');
+      console.log(' Vote enregistré avec succès!');
+      console.log(' === FIN DU CHIFFREMENT PGP ===');
 
       success(
         'Vote enregistré!',
@@ -171,8 +171,8 @@ const VotePage = () => {
       }, 1000);
 
     } catch (err) {
-      console.error('❌ === ERREUR DE VOTE ===');
-      console.error('❌ Erreur complète:', err);
+      console.error(' === ERREUR DE VOTE ===');
+      console.error(' Erreur complète:', err);
       
       const errorMsg = err.response?.data?.detail 
         || err.response?.data?.error

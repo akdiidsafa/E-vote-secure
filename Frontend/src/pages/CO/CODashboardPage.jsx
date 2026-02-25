@@ -25,11 +25,9 @@ const CODashboardPage = () => {
   const { user, logout } = useAuth();
   const { success, error: showError, info } = useNotification();
 
-  // States pour les AlertDialogs
   const [approveDialog, setApproveDialog] = useState({ isOpen: false, voteId: null, voterName: '' });
   const [rejectDialog, setRejectDialog] = useState({ isOpen: false, voteId: null, voterName: '' });
 
-  // States pour les élections et votes
   const [elections, setElections] = useState([]);
   const [selectedElection, setSelectedElection] = useState(null);
   const [pendingVotes, setPendingVotes] = useState([]);
@@ -37,16 +35,13 @@ const CODashboardPage = () => {
   const [rejectedVotes, setRejectedVotes] = useState([]);
   const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
 
-  // ✅ NOUVEAU: State pour l'onglet actif
   const [activeTab, setActiveTab] = useState('pending');
 
-  // States pour le modal de vérification
   const [selectedVote, setSelectedVote] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [decryptedIdentity, setDecryptedIdentity] = useState(null);
   const [decrypting, setDecrypting] = useState(false);
 
-  // Loading states
   const [loading, setLoading] = useState(true);
   const [loadingVotes, setLoadingVotes] = useState(false);
 
@@ -60,17 +55,15 @@ const CODashboardPage = () => {
       const response = await electionsAPI.getAll();
       const data = Array.isArray(response.data) ? response.data : response.data.results || [];
       
-      // Filtrer les élections ouvertes ou fermées (où il peut y avoir des votes)
       const activeElections = data.filter(e => ['open', 'closed'].includes(e.status));
       setElections(activeElections);
       
-      // Sélectionner automatiquement la première élection s'il y en a
       if (activeElections.length > 0 && !selectedElection) {
         setSelectedElection(activeElections[0]);
         loadElectionVotes(activeElections[0].id);
       }
     } catch (err) {
-      console.error('❌ Erreur:', err);
+      console.error(' Erreur:', err);
       showError('Erreur de chargement', 'Impossible de charger les élections');
     } finally {
       setLoading(false);
@@ -80,19 +73,19 @@ const CODashboardPage = () => {
   const loadElectionVotes = async (electionId) => {
     try {
       setLoadingVotes(true);
-      console.log('📡 Chargement des votes pour l\'élection:', electionId);
+      console.log(' Chargement des votes pour l\'élection:', electionId);
       
       const response = await coAPI.getElectionVotes(electionId);
       const data = response.data;
       
-      console.log('✅ Votes reçus:', data);
+      console.log(' Votes reçus:', data);
       
       setPendingVotes(data.pending || []);
       setApprovedVotes(data.approved || []);
       setRejectedVotes(data.rejected || []);
       setStats(data.stats || { total: 0, pending: 0, approved: 0, rejected: 0 });
     } catch (err) {
-      console.error('❌ Erreur:', err);
+      console.error(' Erreur:', err);
       showError('Erreur de chargement', 'Impossible de charger les votes');
     } finally {
       setLoadingVotes(false);
@@ -101,7 +94,7 @@ const CODashboardPage = () => {
 
   const handleElectionChange = (election) => {
     setSelectedElection(election);
-    setActiveTab('pending'); // Réinitialiser l'onglet
+    setActiveTab('pending'); 
     loadElectionVotes(election.id);
   };
 
@@ -114,7 +107,6 @@ const CODashboardPage = () => {
     try {
       console.log('🔓 Déchiffrement PGP de M1...');
 
-      // Récupérer la clé privée CO
       const keysResponse = await electionsAPI.getPrivateKeys(vote.election);
       const { co_private_key } = keysResponse.data;
 
@@ -122,7 +114,7 @@ const CODashboardPage = () => {
         throw new Error('Clé privée CO non disponible');
       }
 
-      console.log('✅ Clé privée PGP CO récupérée');
+      console.log(' Clé privée PGP CO récupérée');
 
       const decryptedText = await decryptMessage(vote.m1_identity, co_private_key);
 
@@ -130,11 +122,11 @@ const CODashboardPage = () => {
         throw new Error('Échec du déchiffrement PGP');
       }
 
-      console.log('✅ M1 déchiffré avec PGP');
+      console.log('M1 déchiffré avec PGP');
 
       const identityData = JSON.parse(decryptedText);
 
-      console.log('📋 Identité déchiffrée:', identityData);
+      console.log(' Identité déchiffrée:', identityData);
 
       setDecryptedIdentity({
         voter_id: identityData.voter_id,
@@ -146,7 +138,7 @@ const CODashboardPage = () => {
       });
 
     } catch (error) {
-      console.error('❌ Erreur de déchiffrement PGP:', error);
+      console.error(' Erreur de déchiffrement PGP:', error);
 
       setDecryptedIdentity({
         voter_id: '***',
@@ -165,18 +157,17 @@ const CODashboardPage = () => {
     if (!approveDialog.voteId) return;
 
     try {
-      console.log('📤 Approbation du vote...');
+      console.log(' Approbation du vote...');
       
       await coAPI.approveVote(approveDialog.voteId);
 
       success('Vote approuvé!', 'Le vote a été approuvé et le PDF M2 a été généré.');
       
-      // Recharger les votes
       if (selectedElection) {
         loadElectionVotes(selectedElection.id);
       }
     } catch (err) {
-      console.error('❌ Erreur:', err);
+      console.error(' Erreur:', err);
       showError('Erreur d\'approbation', err.response?.data?.error || 'Impossible d\'approuver le vote');
     } finally {
       setApproveDialog({ isOpen: false, voteId: null, voterName: '' });
@@ -189,18 +180,17 @@ const CODashboardPage = () => {
     if (!rejectDialog.voteId) return;
 
     try {
-      console.log('📤 Rejet du vote...');
+      console.log(' Rejet du vote...');
       
       await coAPI.rejectVote(rejectDialog.voteId);
 
       success('Vote rejeté', 'Le vote a été rejeté.');
       
-      // Recharger les votes
       if (selectedElection) {
         loadElectionVotes(selectedElection.id);
       }
     } catch (err) {
-      console.error('❌ Erreur:', err);
+      console.error(' Erreur:', err);
       showError('Erreur de rejet', 'Impossible de rejeter le vote');
     } finally {
       setRejectDialog({ isOpen: false, voteId: null, voterName: '' });
@@ -211,7 +201,7 @@ const CODashboardPage = () => {
 
   const handleDownloadM2 = async (vote) => {
     try {
-      console.log('📥 Téléchargement du PDF M2...');
+      console.log(' Téléchargement du PDF M2...');
       const response = await coAPI.downloadM2PDF(vote.id);
       
       const blob = new Blob([response.data], { type: 'application/pdf' });
@@ -226,7 +216,7 @@ const CODashboardPage = () => {
       
       success('PDF téléchargé', 'Bulletin M2 téléchargé avec succès');
     } catch (err) {
-      console.error('❌ Erreur téléchargement M2:', err);
+      console.error(' Erreur téléchargement M2:', err);
       showError('Erreur', 'Impossible de télécharger le PDF M2');
     }
   };
@@ -246,7 +236,6 @@ const CODashboardPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* ✅ HEADER CONSERVÉ */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
@@ -286,9 +275,7 @@ const CODashboardPage = () => {
         </div>
       </div>
 
-      {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Sélecteur d'élection */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Sélectionnez une élection</h2>
           
@@ -324,10 +311,8 @@ const CODashboardPage = () => {
           )}
         </div>
 
-        {/* Votes de l'élection sélectionnée */}
         {selectedElection && (
           <>
-            {/* Stats */}
             <div className="grid grid-cols-4 gap-6 mb-6">
               <Card>
                 <p className="text-sm text-gray-600 mb-1">Total</p>
@@ -347,7 +332,6 @@ const CODashboardPage = () => {
               </Card>
             </div>
 
-            {/* ✅ NOUVEAU: Tabs fonctionnels */}
             <div className="mb-6">
               <div className="border-b border-gray-200">
                 <nav className="-mb-px flex space-x-8">
@@ -388,7 +372,6 @@ const CODashboardPage = () => {
               </div>
             </div>
 
-            {/* ✅ NOUVEAU: Contenu des tabs */}
             {loadingVotes ? (
               <Card className="text-center py-8">
                 <RefreshCw className="w-8 h-8 text-gray-400 mx-auto mb-3 animate-spin" />
@@ -396,7 +379,6 @@ const CODashboardPage = () => {
               </Card>
             ) : (
               <>
-                {/* Tab: En attente */}
                 {activeTab === 'pending' && (
                   pendingVotes.length === 0 ? (
                     <Card className="text-center py-12">
@@ -451,7 +433,6 @@ const CODashboardPage = () => {
                   )
                 )}
 
-                {/* ✅ NOUVEAU: Tab: Approuvés */}
                 {activeTab === 'approved' && (
                   approvedVotes.length === 0 ? (
                     <Card className="text-center py-12">
@@ -496,7 +477,6 @@ const CODashboardPage = () => {
                   )
                 )}
 
-                {/* ✅ NOUVEAU: Tab: Rejetés */}
                 {activeTab === 'rejected' && (
                   rejectedVotes.length === 0 ? (
                     <Card className="text-center py-12">
@@ -538,7 +518,6 @@ const CODashboardPage = () => {
         )}
       </div>
 
-      {/* Modal de vérification */}
       {showModal && selectedVote && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <Card className="max-w-2xl w-full max-h-[80vh] overflow-y-auto">
@@ -562,12 +541,12 @@ const CODashboardPage = () => {
                     {decryptedIdentity.error && (
                       <div className="bg-red-50 border border-red-200 rounded p-3 mb-2">
                         <p className="text-sm text-red-800">
-                          ❌ <strong>Erreur:</strong> {decryptedIdentity.error}
+                           <strong>Erreur:</strong> {decryptedIdentity.error}
                         </p>
                       </div>
                     )}
                     <p className="text-sm text-orange-800">
-                      🔒 <strong>Message chiffré PGP</strong>
+                       <strong>Message chiffré PGP</strong>
                     </p>
                     <p className="text-xs text-gray-600 break-all font-mono bg-white p-2 rounded">
                       {decryptedIdentity.m1_preview}
@@ -595,19 +574,19 @@ const CODashboardPage = () => {
                     </div>
                     <div className="bg-green-50 border border-green-200 rounded p-2 mt-2">
                       <p className="text-xs text-green-800">
-                        ✅ Identité déchiffrée avec succès
+                         Identité déchiffrée avec succès
                       </p>
                     </div>
                   </div>
                 )
               ) : (
-                <p className="text-sm text-red-800">❌ Erreur de déchiffrement</p>
+                <p className="text-sm text-red-800"> Erreur de déchiffrement</p>
               )}
             </div>
 
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-yellow-800">
-                ⚠️ <strong>Important:</strong> Le bulletin M2 sera automatiquement généré en PDF après approbation.
+                 <strong>Important:</strong> Le bulletin M2 sera automatiquement généré en PDF après approbation.
               </p>
             </div>
 
@@ -656,7 +635,6 @@ const CODashboardPage = () => {
         </div>
       )}
 
-      {/* AlertDialog: Approuver */}
       <AlertDialog 
         open={approveDialog.isOpen} 
         onOpenChange={(open) => setApproveDialog({ isOpen: open, voteId: null, voterName: '' })}
@@ -685,7 +663,6 @@ const CODashboardPage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* AlertDialog: Rejeter */}
       <AlertDialog 
         open={rejectDialog.isOpen} 
         onOpenChange={(open) => setRejectDialog({ isOpen: open, voteId: null, voterName: '' })}

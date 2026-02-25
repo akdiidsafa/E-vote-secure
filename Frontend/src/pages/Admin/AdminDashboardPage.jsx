@@ -39,7 +39,6 @@ const AdminDashboardPage = () => {
   const [showElectionSelector, setShowElectionSelector] = useState(false);
   const [actionType, setActionType] = useState(null);
   
-  // NOUVEAU: Validations en attente
   const [pendingValidationsCount, setPendingValidationsCount] = useState(0);
 
   useEffect(() => {
@@ -79,21 +78,19 @@ const AdminDashboardPage = () => {
       setRecentElections(electionsData.slice(0, 5));
       
     } catch (error) {
-      console.error('Erreur:', error);
       setError('Impossible de charger les données');
     } finally {
       setLoading(false);
     }
   };
 
-  // NOUVEAU: Charger les validations en attente
   const loadPendingValidations = async () => {
     try {
       const response = await invitationsAPI.getPending();
       const data = Array.isArray(response.data) ? response.data : response.data.results || [];
       setPendingValidationsCount(data.length);
     } catch (err) {
-      console.error('❌ Erreur validations:', err);
+      console.error(err);
     }
   };
 
@@ -153,7 +150,7 @@ const AdminDashboardPage = () => {
     success('Vote ouvert!', `L'élection "${openDialog.electionTitle}" est maintenant ouverte au vote.`);
     fetchDashboardData();
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    console.error(error);
     const errorMsg = error.response?.data?.error || 'Erreur lors de l\'ouverture du vote';
     showError('Erreur d\'ouverture', errorMsg);
   } finally {
@@ -170,7 +167,7 @@ const AdminDashboardPage = () => {
     success('Vote fermé!', `L'élection "${closeDialog.electionTitle}" a été fermée avec succès.`);
     fetchDashboardData();
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    console.error( error);
     showError('Erreur de fermeture', 'Impossible de fermer l\'élection.');
   } finally {
     setCloseDialog({ isOpen: false, electionId: null, electionTitle: '' });
@@ -224,7 +221,7 @@ const AdminDashboardPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+    {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
@@ -244,7 +241,7 @@ const AdminDashboardPage = () => {
                 </div>
               </div>
             <div className="flex items-center space-x-3">
-              {/* NOUVEAU: Badge de notifications */}
+            
               {pendingValidationsCount > 0 && (
                 <Button 
                   variant="warning" 
@@ -276,7 +273,7 @@ const AdminDashboardPage = () => {
         </div>
       </div>
 
-      {/* Navigation Tabs */}
+    
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <nav className="flex space-x-8">
@@ -303,7 +300,7 @@ const AdminDashboardPage = () => {
               className="py-4 px-2 border-b-2 border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-800 relative"
             >
               Électeurs
-              {/* NOUVEAU: Badge sur l'onglet */}
+             
               {pendingValidationsCount > 0 && (
                 <span className="absolute top-2 right-0 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
                   {pendingValidationsCount}
@@ -326,7 +323,6 @@ const AdminDashboardPage = () => {
         </div>
       </div>
 
-      {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h2 className="text-2xl font-bold mb-2">Tableau de Bord Administrateur</h2>
         <p className="text-gray-600 mb-8">
@@ -338,7 +334,6 @@ const AdminDashboardPage = () => {
           })} - {new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
         </p>
 
-        {/* NOUVEAU: Alerte validations en attente */}
         {pendingValidationsCount > 0 && (
           <Card className="mb-8 bg-yellow-50 border-yellow-200">
             <div className="flex items-start space-x-3">
@@ -363,7 +358,6 @@ const AdminDashboardPage = () => {
           </Card>
         )}
 
-        {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card>
             <div className="flex items-center justify-between">
@@ -407,7 +401,6 @@ const AdminDashboardPage = () => {
           </Card>
         </div>
 
-        {/* Actions Rapides */}
         <Card className="mb-8">
           <h3 className="text-lg font-semibold mb-4">Actions Rapides</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -467,7 +460,6 @@ const AdminDashboardPage = () => {
           </div>
         </Card>
 
-        {/* Élections Récentes */}
         <Card className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Élections Récentes</h3>
@@ -541,7 +533,6 @@ const AdminDashboardPage = () => {
           </div>
         </Card>
 
-        {/* Security Reminder */}
         <Card className="bg-blue-50 border-blue-200">
           <div className="flex items-start space-x-3">
             <div className="flex-shrink-0">
@@ -562,7 +553,6 @@ const AdminDashboardPage = () => {
         </Card>
       </div>
 
-      {/* Election Selector Modal */}
       {showElectionSelector && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <Card className="max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
@@ -619,7 +609,6 @@ const AdminDashboardPage = () => {
         </div>
       )}
 
-      {/* ✅ AlertDialog: Ouvrir le vote */}
       <AlertDialog 
         open={openDialog.isOpen} 
         onOpenChange={(open) => setOpenDialog({ isOpen: open, electionId: null, electionTitle: '' })}
@@ -648,7 +637,6 @@ const AdminDashboardPage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ✅ AlertDialog: Fermer le vote */}
       <AlertDialog 
         open={closeDialog.isOpen} 
         onOpenChange={(open) => setCloseDialog({ isOpen: open, electionId: null, electionTitle: '' })}
@@ -660,7 +648,7 @@ const AdminDashboardPage = () => {
             </div>
             <AlertDialogTitle>Fermer le vote ?</AlertDialogTitle>
             <AlertDialogDescription className="text-center">
-              ⚠️ Voulez-vous vraiment fermer l'élection <strong>{closeDialog.electionTitle}</strong> ?
+               Voulez-vous vraiment fermer l'élection <strong>{closeDialog.electionTitle}</strong> ?
               <br /><br />
               Après fermeture, aucun vote ne pourra plus être soumis. Cette action est irréversible.
             </AlertDialogDescription>
